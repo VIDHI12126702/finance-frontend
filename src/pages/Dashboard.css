@@ -1,0 +1,66 @@
+.dashboard-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f3f6fb;
+  font-family: Arial, sans-serif;
+}
+
+.dashboard-main {
+  margin-left: 240px;
+  width: calc(100% - 240px);
+  padding: 30px;
+  box-sizing: border-box;
+}
+
+.dashboard-header {
+  background: linear-gradient(90deg, #4f46e5, #3b82f6);
+  color: white;
+  padding: 28px;
+  border-radius: 20px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  margin-bottom: 25px;
+}
+
+.dashboard-header h1 {
+  margin: 0 0 8px 0;
+  font-size: 34px;
+}
+
+.dashboard-header p {
+  margin: 0;
+  font-size: 16px;
+  opacity: 0.95;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  margin: 25px 0;
+}
+
+.dashboard-box {
+  background: white;
+  padding: 24px;
+  border-radius: 18px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.dashboard-box h3 {
+  margin-top: 0;
+  margin-bottom: 18px;
+  font-size: 24px;
+  color: #111827;
+}
+
+@media (max-width: 900px) {
+  .dashboard-main {
+    margin-left: 0;
+    width: 100%;
+    padding: 20px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
