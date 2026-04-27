@@ -16,8 +16,12 @@ function Dashboard({ goPage }) {
   const userId = user?.id;
 
   useEffect(() => {
-    if (userId) refreshDashboard();
+    if (userId) {
+      refreshDashboard();
+    }
   }, [userId]);
+
+  const money = (value) => Number(Number(value || 0).toFixed(2));
 
   const refreshDashboard = async () => {
     try {
@@ -37,12 +41,12 @@ function Dashboard({ goPage }) {
 
   const transactionSummary = calculateSummary(transactions);
 
-  let cashBalance = Number(transactionSummary.cashBalance || 0);
-  let bankBalance = Number(transactionSummary.bankBalance || 0);
-  let investmentBalance = Number(transactionSummary.investmentBalance || 0);
+  let cashBalance = money(transactionSummary.cashBalance);
+  let bankBalance = money(transactionSummary.bankBalance);
+  let investmentBalance = money(transactionSummary.investmentBalance);
 
   transfers.forEach((tr) => {
-    const amount = Number(tr.amount || 0);
+    const amount = money(tr.amount);
     const from = (tr.fromAccount || "").toUpperCase();
     const to = (tr.toAccount || "").toUpperCase();
 
@@ -55,7 +59,12 @@ function Dashboard({ goPage }) {
     else if (to === "INVESTMENT") investmentBalance += amount;
   });
 
-  const totalSaving = cashBalance + bankBalance;
+  cashBalance = money(cashBalance);
+  bankBalance = money(bankBalance);
+  investmentBalance = money(investmentBalance);
+
+  // Your rule: Total Saving = Bank + Cash only
+  const totalSaving = money(bankBalance + cashBalance);
 
   return (
     <div className="page-layout">
@@ -64,7 +73,7 @@ function Dashboard({ goPage }) {
       <main className="page-main">
         <section className="page-header">
           <h1>📊 Dashboard</h1>
-          <p>Your balance overview</p>
+          <p>Bank, Cash, Investment and Total Saving overview</p>
         </section>
 
         <SummaryCards
@@ -75,10 +84,10 @@ function Dashboard({ goPage }) {
         />
 
         <section className="page-box dashboard-clean-box">
-          <h2>Welcome back 👋</h2>
+          <h2>💡 Summary Rule</h2>
           <p>
-            Use the <b>Home</b> page to add income and expenses. This dashboard
-            now shows only your financial summary.
+            <b>Total Saving</b> is calculated using only <b>Bank + Cash</b>.
+            Investment is shown separately.
           </p>
         </section>
       </main>

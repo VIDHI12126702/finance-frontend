@@ -282,5 +282,61 @@
   .money-red {
     font-size: 18px;
   }
+.home-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  margin-bottom: 24px;
+}
+
+.home-action-card {
+  background: white;
+  border-radius: 24px;
+  padding: 26px;
+  box-shadow: 0 14px 35px rgba(15, 23, 42, 0.08);
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 210px;
+}
+
+.home-action-card h2 {
+  margin: 0 0 10px;
+  color: #0f172a;
+  font-size: 26px;
+}
+
+.home-action-card p {
+  color: #64748b;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.income-action {
+  background: linear-gradient(135deg, #ffffff, #ecfdf5);
+}
+
+.expense-action {
+  background: linear-gradient(135deg, #ffffff, #fef2f2);
+}
+
+@media (max-width: 768px) {
+  .home-action-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .home-action-card {
+    border-radius: 18px;
+    padding: 18px;
+    min-height: 180px;
+  }
+
+  .home-action-card h2 {
+    font-size: 22px;
+  }
+}
+
 }
 

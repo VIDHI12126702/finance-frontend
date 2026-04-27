@@ -3,6 +3,8 @@ import Sidebar from "../components/Sidebar";
 import AddIncome from "../components/AddIncome";
 import AddExpense from "../components/AddExpense";
 import API from "../api";
+import { Dialog } from "primereact/dialog";
+import { Button } from "primereact/button";
 import { normalizeTransactions } from "../utils/transactionUtils";
 import { getUserCurrencySymbol } from "../utils/currencyUtils";
 import { formatMoney } from "../utils/moneyUtils";
@@ -10,6 +12,8 @@ import "./PageLayout.css";
 
 function HomePage({ goPage }) {
   const [transactions, setTransactions] = useState([]);
+  const [incomeDialog, setIncomeDialog] = useState(false);
+  const [expenseDialog, setExpenseDialog] = useState(false);
 
   const user = JSON.parse(localStorage.getItem("loggedInUser"));
   const userId = user?.id;
@@ -30,14 +34,24 @@ function HomePage({ goPage }) {
   };
 
   const incomeList = useMemo(
-    () => transactions.filter((t) => t.type === "INCOME").slice(0, 8),
+    () => transactions.filter((t) => t.type === "INCOME").slice(0, 6),
     [transactions]
   );
 
   const expenseList = useMemo(
-    () => transactions.filter((t) => t.type === "EXPENSE").slice(0, 8),
+    () => transactions.filter((t) => t.type === "EXPENSE").slice(0, 6),
     [transactions]
   );
+
+  const closeIncome = async () => {
+    setIncomeDialog(false);
+    await fetchData();
+  };
+
+  const closeExpense = async () => {
+    setExpenseDialog(false);
+    await fetchData();
+  };
 
   const TableCard = ({ title, items, type }) => (
     <div className="home-table-card">
@@ -60,7 +74,9 @@ function HomePage({ goPage }) {
                 {item.notes && <small>{item.notes}</small>}
               </div>
 
-              <strong className={type === "income" ? "money-green" : "money-red"}>
+              <strong
+                className={type === "income" ? "money-green" : "money-red"}
+              >
                 {type === "income" ? "+" : "-"} {symbol}
                 {formatMoney(item.amount)}
               </strong>
@@ -78,16 +94,38 @@ function HomePage({ goPage }) {
       <main className="page-main">
         <section className="page-header">
           <h1>🏠 Home</h1>
-          <p>Add income, add expense and quickly view recent records</p>
+          <p>Add income or expense quickly</p>
         </section>
 
-        <section className="home-form-grid">
-          <div className="home-form-card income-card">
-            <AddIncome fetchData={fetchData} userId={userId} />
+        <section className="home-action-grid">
+          <div className="home-action-card income-action">
+            <div>
+              <h2>💰 Add Income</h2>
+              <p>Add salary, returned money or other income.</p>
+            </div>
+
+            <Button
+              label="Open Income Form"
+              icon="pi pi-plus"
+              className="w-full"
+              severity="success"
+              onClick={() => setIncomeDialog(true)}
+            />
           </div>
 
-          <div className="home-form-card expense-card">
-            <AddExpense fetchData={fetchData} userId={userId} />
+          <div className="home-action-card expense-action">
+            <div>
+              <h2>💸 Add Expense</h2>
+              <p>Add bills, grocery, rent, personal use and more.</p>
+            </div>
+
+            <Button
+              label="Open Expense Form"
+              icon="pi pi-minus"
+              className="w-full"
+              severity="danger"
+              onClick={() => setExpenseDialog(true)}
+            />
           </div>
         </section>
 
@@ -95,6 +133,38 @@ function HomePage({ goPage }) {
           <TableCard title="💰 Income Records" items={incomeList} type="income" />
           <TableCard title="💸 Expense Records" items={expenseList} type="expense" />
         </section>
+
+        <Dialog
+          header="💰 Add Income"
+          visible={incomeDialog}
+          modal
+          style={{ width: "95%", maxWidth: "700px" }}
+          onHide={closeIncome}
+        >
+          <AddIncome
+            fetchData={async () => {
+              await fetchData();
+              setIncomeDialog(false);
+            }}
+            userId={userId}
+          />
+        </Dialog>
+
+        <Dialog
+          header="💸 Add Expense"
+          visible={expenseDialog}
+          modal
+          style={{ width: "95%", maxWidth: "700px" }}
+          onHide={closeExpense}
+        >
+          <AddExpense
+            fetchData={async () => {
+              await fetchData();
+              setExpenseDialog(false);
+            }}
+            userId={userId}
+          />
+        </Dialog>
       </main>
     </div>
   );
