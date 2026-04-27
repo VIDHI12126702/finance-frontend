@@ -3,29 +3,28 @@
   background: #f8fafc;
 }
 
-/* 🔥 MAIN FIX HERE */
 .page-main {
-  margin-left: 240px; /* same as sidebar width */
+  margin-left: 240px;
   width: calc(100% - 240px);
   min-height: 100vh;
   padding: 24px;
   box-sizing: border-box;
-  overflow-x: auto;
+  overflow-x: hidden;
 }
 
-/* Header */
 .page-header {
   background: linear-gradient(135deg, #1e3a8a, #2563eb);
   color: white;
   border-radius: 20px;
   padding: 24px;
   margin-bottom: 24px;
+  box-shadow: 0 12px 30px rgba(37, 99, 235, 0.22);
 }
 
 .page-header h1 {
   margin: 0 0 8px 0;
   font-size: 32px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .page-header p {
@@ -34,7 +33,6 @@
   opacity: 0.95;
 }
 
-/* Box */
 .page-box {
   background: white;
   border-radius: 18px;
@@ -44,44 +42,50 @@
   margin-bottom: 24px;
 }
 
-/* Form grid */
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
 }
 
-/* Tablet */
+.responsive-card {
+  width: 100%;
+}
+
+.p-inputnumber,
+.p-inputnumber-input,
+.p-dropdown,
+.p-calendar,
+.p-inputtextarea,
+.p-inputtext {
+  width: 100%;
+}
+
 @media (max-width: 992px) {
   .page-main {
-    margin-left: 220px;
-    width: calc(100% - 220px);
+    margin-left: 240px;
+    width: calc(100% - 240px);
     padding: 18px;
-  }
-
-  .page-header {
-    padding: 20px;
-  }
-
-  .page-header h1 {
-    font-size: 28px;
   }
 
   .form-grid {
     grid-template-columns: 1fr;
   }
+
+  .page-header h1 {
+    font-size: 28px;
+  }
 }
 
-/* Mobile */
 @media (max-width: 768px) {
   .page-main {
-    margin-left: 200px;
-    width: calc(100% - 200px);
-    padding: 14px;
+    margin-left: 0;
+    width: 100%;
+    padding: 14px 14px 90px;
   }
 
   .page-header {
-    border-radius: 16px;
+    border-radius: 18px;
     padding: 18px;
     margin-bottom: 18px;
   }
@@ -90,30 +94,47 @@
     font-size: 24px;
   }
 
+  .page-header p {
+    font-size: 14px;
+  }
+
   .page-box {
-    padding: 16px;
-    border-radius: 14px;
-    margin-bottom: 18px;
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .summary-mobile-card .p-card-body {
+    padding: 1rem;
+  }
+
+  .summary-mobile-card .text-3xl {
+    font-size: 1.4rem !important;
+  }
+
+  .p-card .p-card-title {
+    font-size: 1.15rem;
+  }
+
+  .p-button {
+    min-height: 44px;
   }
 }
 
-/* Small mobile */
 @media (max-width: 480px) {
   .page-main {
-    margin-left: 180px;
-    width: calc(100% - 180px);
-    padding: 10px;
+    padding: 10px 10px 88px;
   }
 
   .page-header {
-    padding: 14px;
+    padding: 15px;
   }
 
   .page-header h1 {
     font-size: 21px;
-  }
-
-  .page-box {
-    padding: 14px;
   }
 }

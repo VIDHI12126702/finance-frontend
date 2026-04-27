@@ -7,6 +7,7 @@ import { Calendar } from "primereact/calendar";
 import { Button } from "primereact/button";
 import { Message } from "primereact/message";
 import API from "../api";
+import { toMoneyNumber } from "../utils/moneyUtils";
 
 function AddIncome({ fetchData, userId }) {
   const [amount, setAmount] = useState(null);
@@ -31,21 +32,22 @@ function AddIncome({ fetchData, userId }) {
   const formatDate = (value) => {
     if (!value) return null;
     const d = new Date(value);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+      d.getDate()
+    ).padStart(2, "0")}`;
   };
 
   const handleAdd = async () => {
     setMsg(null);
+
+    const cleanAmount = toMoneyNumber(amount);
 
     if (!userId) {
       setMsg({ type: "error", text: "User not found. Please login again." });
       return;
     }
 
-    if (!amount || amount <= 0) {
+    if (cleanAmount <= 0) {
       setMsg({ type: "error", text: "Please enter a valid income amount." });
       return;
     }
@@ -53,17 +55,15 @@ function AddIncome({ fetchData, userId }) {
     try {
       setLoading(true);
 
-      const payload = {
+      await API.post("/transactions", {
         type: "INCOME",
         category,
         account,
-        amount,
-        notes,
+        amount: cleanAmount,
+        notes: notes.trim(),
         date: formatDate(date),
         user: { id: userId },
-      };
-
-      await API.post("/transactions", payload);
+      });
 
       setAmount(null);
       setCategory("Income");
@@ -71,20 +71,19 @@ function AddIncome({ fetchData, userId }) {
       setNotes("");
       setDate(new Date());
       setMsg({ type: "success", text: "Income added successfully." });
-
-      if (fetchData) {
-        fetchData();
-      }
+      fetchData?.();
     } catch (error) {
-      console.error("Add income error:", error);
-      setMsg({ type: "error", text: "Failed to add income." });
+      setMsg({
+        type: "error",
+        text: error?.response?.data?.message || "Failed to add income.",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Card title="Add Income" className="shadow-2 border-round-2xl">
+    <Card title="Add Income" className="shadow-2 border-round-2xl responsive-card">
       <div className="grid">
         <div className="col-12 md:col-6">
           <label className="block mb-2 font-medium">Amount</label>
@@ -93,64 +92,36 @@ function AddIncome({ fetchData, userId }) {
             onValueChange={(e) => setAmount(e.value)}
             mode="decimal"
             min={0}
-            placeholder="Enter income amount"
+            minFractionDigits={0}
+            maxFractionDigits={2}
+            inputMode="decimal"
+            placeholder="Example: 12.30"
             className="w-full"
           />
         </div>
 
         <div className="col-12 md:col-6">
           <label className="block mb-2 font-medium">Income Type</label>
-          <Dropdown
-            value={category}
-            options={incomeCategoryOptions}
-            onChange={(e) => setCategory(e.value)}
-            placeholder="Select income type"
-            className="w-full"
-          />
+          <Dropdown value={category} options={incomeCategoryOptions} onChange={(e) => setCategory(e.value)} className="w-full" />
         </div>
 
         <div className="col-12 md:col-6">
           <label className="block mb-2 font-medium">Income To</label>
-          <Dropdown
-            value={account}
-            options={accountOptions}
-            onChange={(e) => setAccount(e.value)}
-            placeholder="Select account"
-            className="w-full"
-          />
+          <Dropdown value={account} options={accountOptions} onChange={(e) => setAccount(e.value)} className="w-full" />
         </div>
 
         <div className="col-12 md:col-6">
           <label className="block mb-2 font-medium">Date</label>
-          <Calendar
-            value={date}
-            onChange={(e) => setDate(e.value)}
-            dateFormat="dd/mm/yy"
-            showIcon
-            className="w-full"
-          />
+          <Calendar value={date} onChange={(e) => setDate(e.value)} dateFormat="dd/mm/yy" showIcon className="w-full" />
         </div>
 
         <div className="col-12">
           <label className="block mb-2 font-medium">Notes</label>
-          <InputTextarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={4}
-            placeholder="Example: Friend returned money"
-            className="w-full"
-            autoResize
-          />
+          <InputTextarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full" autoResize />
         </div>
 
         <div className="col-12">
-          <Button
-            label={loading ? "Adding..." : "Add Income"}
-            icon="pi pi-plus"
-            onClick={handleAdd}
-            loading={loading}
-            className="w-full"
-          />
+          <Button label={loading ? "Adding..." : "Add Income"} icon="pi pi-plus" onClick={handleAdd} loading={loading} className="w-full" />
         </div>
 
         {msg && (

@@ -7,6 +7,7 @@ import { Calendar } from "primereact/calendar";
 import { Button } from "primereact/button";
 import { Message } from "primereact/message";
 import API from "../api";
+import { toMoneyNumber } from "../utils/moneyUtils";
 
 function AddExpense({ fetchData, userId }) {
   const [amount, setAmount] = useState(null);
@@ -38,10 +39,10 @@ function AddExpense({ fetchData, userId }) {
   const formatDate = (value) => {
     if (!value) return null;
     const d = new Date(value);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(d.getDate()).padStart(2, "0")}`;
   };
 
   const convertFileToBase64 = (file) => {
@@ -55,6 +56,7 @@ function AddExpense({ fetchData, userId }) {
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
+
     if (!file) {
       setBillFile(null);
       return;
@@ -81,12 +83,14 @@ function AddExpense({ fetchData, userId }) {
   const handleAdd = async () => {
     setMsg(null);
 
+    const cleanAmount = toMoneyNumber(amount);
+
     if (!userId) {
       setMsg({ type: "error", text: "User not found. Please login again." });
       return;
     }
 
-    if (!amount || amount <= 0) {
+    if (cleanAmount <= 0) {
       setMsg({ type: "error", text: "Please enter a valid expense amount." });
       return;
     }
@@ -122,8 +126,8 @@ function AddExpense({ fetchData, userId }) {
         type: "EXPENSE",
         category,
         account,
-        amount,
-        notes,
+        amount: cleanAmount,
+        notes: notes.trim(),
         bill: billFile,
         date: formatDate(date),
         user: { id: userId },
@@ -133,13 +137,13 @@ function AddExpense({ fetchData, userId }) {
 
       resetForm();
       setMsg({ type: "success", text: "Expense added successfully." });
-
-      if (fetchData) {
-        fetchData();
-      }
+      fetchData?.();
     } catch (error) {
       console.error("Add expense error:", error);
-      setMsg({ type: "error", text: "Failed to add expense." });
+      setMsg({
+        type: "error",
+        text: error?.response?.data?.message || "Failed to add expense.",
+      });
     } finally {
       setLoading(false);
     }
@@ -150,7 +154,7 @@ function AddExpense({ fetchData, userId }) {
   const showMoneyGiveNote = category === "Money Give";
 
   return (
-    <Card title="Add Expense" className="shadow-2 border-round-2xl">
+    <Card title="Add Expense" className="shadow-2 border-round-2xl responsive-card">
       <div className="grid">
         <div className="col-12 md:col-6">
           <label className="block mb-2 font-medium">Amount</label>
@@ -159,7 +163,10 @@ function AddExpense({ fetchData, userId }) {
             onValueChange={(e) => setAmount(e.value)}
             mode="decimal"
             min={0}
-            placeholder="Enter expense amount"
+            minFractionDigits={0}
+            maxFractionDigits={2}
+            inputMode="decimal"
+            placeholder="Example: 12.30"
             className="w-full"
           />
         </div>
@@ -201,83 +208,68 @@ function AddExpense({ fetchData, userId }) {
           />
         </div>
 
+        <div className="col-12">
+          <label className="block mb-2 font-medium">Notes</label>
+          <InputTextarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            placeholder={
+              showCarNote
+                ? "Example: Petrol, service, repair"
+                : showMoneyGiveNote
+                ? "Example: Money given to friend"
+                : "Write note"
+            }
+            className="w-full"
+            autoResize
+          />
+        </div>
+
         {showPersonalUseExtra && (
-          <>
-            <div className="col-12">
-              <label className="block mb-2 font-medium">
-                Note for Personal Use
-              </label>
-              <InputTextarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={4}
-                placeholder="Write personal use note"
-                className="w-full"
-                autoResize
-              />
-            </div>
-
-            <div className="col-12">
-              <label className="block mb-2 font-medium">
-                Upload Image for Personal Use
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="w-full"
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "10px",
-                  background: "#fff",
-                }}
-              />
-              {billFile && (
-                <p style={{ marginTop: "8px", color: "green", fontWeight: 600 }}>
-                  Image selected successfully
-                </p>
-              )}
-            </div>
-          </>
-        )}
-
-        {showCarNote && (
           <div className="col-12">
-            <label className="block mb-2 font-medium">Car Note</label>
-            <InputTextarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={4}
-              placeholder="Write fuel, repair, insurance, service details"
-              className="w-full"
-              autoResize
+            <label className="block mb-2 font-medium">Upload Bill Image</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="w-full p-inputtext"
             />
-          </div>
-        )}
 
-        {showMoneyGiveNote && (
-          <div className="col-12">
-            <label className="block mb-2 font-medium">Money Give Note</label>
-            <InputTextarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={4}
-              placeholder="Write whom you gave money to and reason"
-              className="w-full"
-              autoResize
-            />
+            {billFile && (
+              <div className="mt-3">
+                <img
+                  src={billFile}
+                  alt="Bill Preview"
+                  style={{
+                    width: "100%",
+                    maxHeight: "220px",
+                    objectFit: "contain",
+                    borderRadius: "12px",
+                    border: "1px solid #e5e7eb",
+                  }}
+                />
+
+                <Button
+                  label="Remove Image"
+                  icon="pi pi-times"
+                  severity="danger"
+                  outlined
+                  className="mt-2 w-full"
+                  onClick={() => setBillFile(null)}
+                />
+              </div>
+            )}
           </div>
         )}
 
         <div className="col-12">
           <Button
             label={loading ? "Adding..." : "Add Expense"}
-            icon="pi pi-minus"
+            icon="pi pi-plus"
             onClick={handleAdd}
             loading={loading}
-            className="w-full p-button-danger"
+            className="w-full"
           />
         </div>
 

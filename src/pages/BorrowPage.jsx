@@ -29,6 +29,7 @@ function BorrowPage({ goPage }) {
   const [currency, setCurrency] = useState("INR");
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [date, setDate] = useState(new Date());
+  const [note, setNote] = useState("");
 
   const [searchName, setSearchName] = useState("");
   const [selectedCurrencyFilter, setSelectedCurrencyFilter] = useState("ALL");
@@ -74,36 +75,36 @@ function BorrowPage({ goPage }) {
     }
   }, [userId]);
 
+  const money = (value) => Number(Number(value || 0).toFixed(2));
+
   const formatDateForApi = (value) => {
     if (!value) return null;
     const d = new Date(value);
-    const year = d.getFullYear();
-    const month = `${d.getMonth() + 1}`.padStart(2, "0");
-    const day = `${d.getDate()}`.padStart(2, "0");
-    return `${year}-${month}-${day}`;
+    return `${d.getFullYear()}-${`${d.getMonth() + 1}`.padStart(
+      2,
+      "0"
+    )}-${`${d.getDate()}`.padStart(2, "0")}`;
   };
 
   const normalizeBorrowItem = (item) => {
-    const totalAmount = Number(item.totalAmount ?? item.amount ?? 0);
-    const returnedAmount = Number(item.returnedAmount ?? 0);
-    const remainingAmount = Number(
+    const totalAmount = money(item.totalAmount ?? item.amount ?? 0);
+    const returnedAmount = money(item.returnedAmount ?? 0);
+    const remainingAmount = money(
       item.remainingAmount ?? Math.max(totalAmount - returnedAmount, 0)
     );
 
     let status = item.status;
+
     if (!status) {
-      if (remainingAmount <= 0) {
-        status = "RETURNED";
-      } else if (returnedAmount > 0) {
-        status = "PARTIAL";
-      } else {
-        status = "PENDING";
-      }
+      if (remainingAmount <= 0) status = "RETURNED";
+      else if (returnedAmount > 0) status = "PARTIAL";
+      else status = "PENDING";
     }
 
     return {
       ...item,
       totalAmount,
+      amount: totalAmount,
       returnedAmount,
       remainingAmount,
       status,
@@ -119,22 +120,13 @@ function BorrowPage({ goPage }) {
       setList(raw.map(normalizeBorrowItem));
     } catch (err) {
       console.error("Error fetching borrow/lend data:", err);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Failed to load records",
-      });
+      showError("Failed to load records");
     }
   };
 
   const getCurrencySymbol = (code) => {
     const found = currencyOptions.find((item) => item.code === code);
     return found ? found.symbol : `${code} `;
-  };
-
-  const getCurrencyLabel = (code) => {
-    const found = currencyOptions.find((item) => item.code === code);
-    return found ? found.label : code;
   };
 
   const getPaymentLabel = (code) => {
@@ -159,12 +151,14 @@ function BorrowPage({ goPage }) {
   };
 
   const handleAdd = async () => {
-    if (!personName.trim() || !amount || !paymentMethod || !date) {
+    const cleanAmount = money(amount);
+
+    if (!personName.trim() || !paymentMethod || !date) {
       showError("Please fill all fields");
       return;
     }
 
-    if (Number(amount) <= 0) {
+    if (cleanAmount <= 0) {
       showError("Amount must be greater than 0");
       return;
     }
@@ -172,15 +166,15 @@ function BorrowPage({ goPage }) {
     try {
       await API.post("/borrow", {
         personName: personName.trim(),
-        amount: Number(amount),
-        totalAmount: Number(amount),
+        amount: cleanAmount,
         returnedAmount: 0,
-        remainingAmount: Number(amount),
+        remainingAmount: cleanAmount,
         status: "PENDING",
         type,
         currency,
         paymentMethod,
         date: formatDateForApi(date),
+        note: note.trim(),
         user: { id: userId },
       });
 
@@ -190,6 +184,8 @@ function BorrowPage({ goPage }) {
       setCurrency("INR");
       setPaymentMethod("CASH");
       setDate(new Date());
+      setNote("");
+
       fetchData();
       showSuccess("Record added successfully");
     } catch (err) {
@@ -219,22 +215,24 @@ function BorrowPage({ goPage }) {
   const handleConfirmReturn = async () => {
     if (!selectedReturnItem) return;
 
-    if (!returnAmount || Number(returnAmount) <= 0) {
+    const cleanReturnAmount = money(returnAmount);
+
+    if (cleanReturnAmount <= 0) {
       showError("Please enter valid return amount");
       return;
     }
 
-    if (Number(returnAmount) > Number(selectedReturnItem.remainingAmount || 0)) {
+    if (cleanReturnAmount > money(selectedReturnItem.remainingAmount)) {
       showError("Return amount cannot be greater than remaining amount");
       return;
     }
 
     try {
       await API.put(`/borrow/return/${selectedReturnItem.id}`, {
-        returnAmount: String(Number(returnAmount)),
+        returnAmount: cleanReturnAmount.toString(),
         returnPaymentMethod,
         returnDate: formatDateForApi(returnDate),
-        note: returnNote,
+        note: returnNote.trim(),
       });
 
       closeReturnModal();
@@ -288,13 +286,13 @@ function BorrowPage({ goPage }) {
       entry.count += 1;
 
       if (item.type === "GIVE") {
-        entry.totalGiven += Number(item.totalAmount || 0);
-        entry.totalReturnReceived += Number(item.returnedAmount || 0);
-        entry.leftToReceive += Number(item.remainingAmount || 0);
+        entry.totalGiven += money(item.totalAmount);
+        entry.totalReturnReceived += money(item.returnedAmount);
+        entry.leftToReceive += money(item.remainingAmount);
       } else {
-        entry.totalTaken += Number(item.totalAmount || 0);
-        entry.totalPaidBack += Number(item.returnedAmount || 0);
-        entry.leftToPay += Number(item.remainingAmount || 0);
+        entry.totalTaken += money(item.totalAmount);
+        entry.totalPaidBack += money(item.returnedAmount);
+        entry.leftToPay += money(item.remainingAmount);
       }
     });
 
@@ -302,6 +300,14 @@ function BorrowPage({ goPage }) {
       a.currency.localeCompare(b.currency)
     );
   }, [list]);
+
+  const currencyFilterOptions = [
+    { label: "All Currency", value: "ALL" },
+    ...currencyOptions.map((c) => ({
+      label: `${c.symbol} ${c.code}`,
+      value: c.code,
+    })),
+  ];
 
   const filteredPendingList = useMemo(() => {
     return list.filter((item) => {
@@ -337,7 +343,7 @@ function BorrowPage({ goPage }) {
     return (
       <span style={{ fontWeight: 700 }}>
         {getCurrencySymbol(rowData.currency)}
-        {Number(rowData[field] || 0)}
+        {money(rowData[field]).toFixed(2)}
       </span>
     );
   };
@@ -366,6 +372,8 @@ function BorrowPage({ goPage }) {
     return <Tag value={label} severity={severity} />;
   };
 
+  const paymentBody = (rowData) => getPaymentLabel(rowData.paymentMethod);
+
   const actionBody = (rowData) => (
     <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
       {rowData.remainingAmount > 0 && rowData.status !== "RETURNED" && (
@@ -378,6 +386,7 @@ function BorrowPage({ goPage }) {
           onClick={() => openReturnModal(rowData)}
         />
       )}
+
       <Button
         label="Delete"
         icon="pi pi-trash"
@@ -390,649 +399,383 @@ function BorrowPage({ goPage }) {
     </div>
   );
 
-  const exportPendingCSV = () => {
-    dtPending.current.exportCSV();
-  };
-
-  const exportReturnedCSV = () => {
-    dtReturned.current.exportCSV();
-  };
-
   return (
     <div className="page-layout">
       <Toast ref={toast} />
       <ConfirmDialog />
       <Sidebar goPage={goPage} />
 
-      <main
-        className="page-main"
-        style={{
-          background: "linear-gradient(180deg, #f8fafc 0%, #eef4ff 100%)",
-          minHeight: "100vh",
-          paddingBottom: "2rem",
-        }}
-      >
-        <section
-          className="page-header"
-          style={{
-            background: "linear-gradient(135deg, #1e3a8a, #2563eb)",
-            color: "#fff",
-            borderRadius: "24px",
-            padding: "26px",
-            marginBottom: "24px",
-            boxShadow: "0 14px 35px rgba(37, 99, 235, 0.22)",
-          }}
-        >
-          <h1 style={{ margin: 0 }}>📊 Borrow / Lend Manager</h1>
-          <p style={{ marginTop: "8px", marginBottom: 0, opacity: 0.95 }}>
-            Table view with currency summary and filter buttons
-          </p>
+      <main className="page-main">
+        <section className="page-header">
+          <h1>💸 Borrow / Lend</h1>
+          <p>Manage money you gave, took and returned</p>
         </section>
 
-        <section style={{ marginBottom: "24px" }}>
-          <h2 style={{ marginBottom: "16px", color: "#0f172a" }}>
-            Currency Summary
-          </h2>
-
+        <div className="grid mb-4">
           {currencySummary.length === 0 ? (
-            <Card>
-              <p style={{ margin: 0 }}>No summary available</p>
-            </Card>
+            <div className="col-12">
+              <Card className="shadow-2 border-round-2xl">
+                <p className="m-0 text-600">No borrow/lend summary found.</p>
+              </Card>
+            </div>
           ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                gap: "16px",
-              }}
-            >
-              {currencySummary.map((item) => (
-                <Card
-                  key={item.currency}
-                  style={{
-                    borderRadius: "18px",
-                    border: "1px solid #e5e7eb",
-                    background:
-                      selectedCurrencyFilter === item.currency
-                        ? "linear-gradient(135deg, #dbeafe, #eff6ff)"
-                        : "linear-gradient(135deg, #ffffff, #eff6ff)",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "1rem",
-                      gap: "0.75rem",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <h3 style={{ margin: 0 }}>{item.currency} Summary</h3>
-                    <Tag value={getCurrencyLabel(item.currency)} severity="info" />
-                  </div>
+            currencySummary.map((item) => (
+              <div className="col-12 md:col-6 xl:col-4" key={item.currency}>
+                <Card className="shadow-2 border-round-2xl">
+                  <h3 className="mt-0">
+                    {getCurrencySymbol(item.currency)} {item.currency}
+                  </h3>
 
-                  <div style={{ display: "grid", gap: "0.5rem", marginBottom: "1rem" }}>
-                    <div>
-                      <b>Total Given:</b> {getCurrencySymbol(item.currency)}
-                      {item.totalGiven}
-                    </div>
-                    <div>
-                      <b>Total Taken:</b> {getCurrencySymbol(item.currency)}
-                      {item.totalTaken}
-                    </div>
-                    <div style={{ color: "#166534" }}>
-                      <b>Return Received:</b> {getCurrencySymbol(item.currency)}
-                      {item.totalReturnReceived}
-                    </div>
-                    <div style={{ color: "#2563eb" }}>
-                      <b>Paid Back:</b> {getCurrencySymbol(item.currency)}
-                      {item.totalPaidBack}
-                    </div>
-                    <div style={{ color: "#7c3aed" }}>
-                      <b>Left To Receive:</b> {getCurrencySymbol(item.currency)}
-                      {item.leftToReceive}
-                    </div>
-                    <div style={{ color: "#dc2626" }}>
-                      <b>Left To Pay:</b> {getCurrencySymbol(item.currency)}
-                      {item.leftToPay}
-                    </div>
-                    <div>
-                      <b>Records:</b> {item.count}
-                    </div>
-                  </div>
+                  <p>
+                    Total Given:{" "}
+                    <b>
+                      {getCurrencySymbol(item.currency)}
+                      {money(item.totalGiven).toFixed(2)}
+                    </b>
+                  </p>
 
-                  <Button
-                    label={
-                      selectedCurrencyFilter === item.currency
-                        ? `Showing ${item.currency}`
-                        : `Show ${item.currency} Records`
-                    }
-                    icon="pi pi-filter"
-                    severity={
-                      selectedCurrencyFilter === item.currency
-                        ? "success"
-                        : "primary"
-                    }
-                    outlined={selectedCurrencyFilter !== item.currency}
-                    style={{ width: "100%" }}
-                    onClick={() => setSelectedCurrencyFilter(item.currency)}
-                  />
+                  <p>
+                    Return Received:{" "}
+                    <b>
+                      {getCurrencySymbol(item.currency)}
+                      {money(item.totalReturnReceived).toFixed(2)}
+                    </b>
+                  </p>
+
+                  <p>
+                    Left To Receive:{" "}
+                    <b>
+                      {getCurrencySymbol(item.currency)}
+                      {money(item.leftToReceive).toFixed(2)}
+                    </b>
+                  </p>
+
+                  <hr />
+
+                  <p>
+                    Total Taken:{" "}
+                    <b>
+                      {getCurrencySymbol(item.currency)}
+                      {money(item.totalTaken).toFixed(2)}
+                    </b>
+                  </p>
+
+                  <p>
+                    Paid Back:{" "}
+                    <b>
+                      {getCurrencySymbol(item.currency)}
+                      {money(item.totalPaidBack).toFixed(2)}
+                    </b>
+                  </p>
+
+                  <p>
+                    Left To Pay:{" "}
+                    <b>
+                      {getCurrencySymbol(item.currency)}
+                      {money(item.leftToPay).toFixed(2)}
+                    </b>
+                  </p>
                 </Card>
-              ))}
-            </div>
+              </div>
+            ))
           )}
-        </section>
+        </div>
 
-        <section style={{ marginBottom: "24px" }}>
-          <Card
-            style={{
-              borderRadius: "20px",
-              border: "1px solid #e5e7eb",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: "1rem",
-                flexWrap: "wrap",
-              }}
-            >
-              <div>
-                <h2 style={{ margin: 0, color: "#0f172a" }}>Filter by Currency</h2>
-                <p style={{ margin: "6px 0 0 0", color: "#64748b" }}>
-                  Click button and show only that currency records
-                </p>
-              </div>
+        <section className="page-box">
+          <h2 className="mt-0">Add Borrow / Lend Record</h2>
 
-              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                <Button
-                  label="All Currency"
-                  icon="pi pi-list"
-                  severity={
-                    selectedCurrencyFilter === "ALL" ? "primary" : "secondary"
-                  }
-                  outlined={selectedCurrencyFilter !== "ALL"}
-                  onClick={() => setSelectedCurrencyFilter("ALL")}
-                />
-
-                {currencySummary.map((item) => (
-                  <Button
-                    key={item.currency}
-                    label={`${item.currency} (${item.count})`}
-                    icon="pi pi-wallet"
-                    severity={
-                      selectedCurrencyFilter === item.currency
-                        ? "success"
-                        : "secondary"
-                    }
-                    outlined={selectedCurrencyFilter !== item.currency}
-                    onClick={() => setSelectedCurrencyFilter(item.currency)}
-                  />
-                ))}
-              </div>
-            </div>
-          </Card>
-        </section>
-
-        <section style={{ marginBottom: "24px" }}>
-          <Card
-            style={{
-              borderRadius: "20px",
-              border: "1px solid #e5e7eb",
-            }}
-          >
-            <h2 style={{ marginTop: 0, marginBottom: "18px", color: "#0f172a" }}>
-              Add New Entry
-            </h2>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "14px",
-              }}
-            >
-              <span className="p-float-label">
-                <InputText
-                  id="personName"
-                  value={personName}
-                  onChange={(e) => setPersonName(e.target.value)}
-                  style={{ width: "100%" }}
-                />
-                <label htmlFor="personName">Person Name</label>
-              </span>
-
-              <span className="p-float-label">
-                <InputNumber
-                  id="amount"
-                  value={amount}
-                  onValueChange={(e) => setAmount(e.value)}
-                  mode="decimal"
-                  min={0}
-                  style={{ width: "100%" }}
-                  inputStyle={{ width: "100%" }}
-                />
-                <label htmlFor="amount">Amount</label>
-              </span>
-
-              <span className="p-float-label">
-                <Dropdown
-                  id="type"
-                  value={type}
-                  options={typeOptions}
-                  onChange={(e) => setType(e.value)}
-                  style={{ width: "100%" }}
-                />
-                <label htmlFor="type">Type</label>
-              </span>
-
-              <span className="p-float-label">
-                <Dropdown
-                  id="currency"
-                  value={currency}
-                  options={currencyOptions.map((item) => ({
-                    label: `${item.code} (${item.label})`,
-                    value: item.code,
-                  }))}
-                  onChange={(e) => setCurrency(e.value)}
-                  style={{ width: "100%" }}
-                />
-                <label htmlFor="currency">Currency</label>
-              </span>
-
-              <span className="p-float-label">
-                <Dropdown
-                  id="paymentMethod"
-                  value={paymentMethod}
-                  options={paymentOptions.map((item) => ({
-                    label: item.label,
-                    value: item.code,
-                  }))}
-                  onChange={(e) => setPaymentMethod(e.value)}
-                  style={{ width: "100%" }}
-                />
-                <label htmlFor="paymentMethod">Payment Method</label>
-              </span>
-
-              <span className="p-float-label">
-                <Calendar
-                  id="date"
-                  value={date}
-                  onChange={(e) => setDate(e.value)}
-                  dateFormat="yy-mm-dd"
-                  showIcon
-                  style={{ width: "100%" }}
-                  inputStyle={{ width: "100%" }}
-                />
-                <label htmlFor="date">Date</label>
-              </span>
+          <div className="grid">
+            <div className="col-12 md:col-6">
+              <label className="block mb-2 font-medium">Person Name</label>
+              <InputText
+                value={personName}
+                onChange={(e) => setPersonName(e.target.value)}
+                placeholder="Enter person name"
+                className="w-full"
+              />
             </div>
 
-            <div style={{ marginTop: "18px" }}>
+            <div className="col-12 md:col-6">
+              <label className="block mb-2 font-medium">Amount</label>
+              <InputNumber
+                value={amount}
+                onValueChange={(e) => setAmount(e.value)}
+                mode="decimal"
+                min={0}
+                minFractionDigits={0}
+                maxFractionDigits={2}
+                inputMode="decimal"
+                placeholder="Example: 12.30"
+                className="w-full"
+              />
+            </div>
+
+            <div className="col-12 md:col-6">
+              <label className="block mb-2 font-medium">Type</label>
+              <Dropdown
+                value={type}
+                options={typeOptions}
+                onChange={(e) => setType(e.value)}
+                className="w-full"
+              />
+            </div>
+
+            <div className="col-12 md:col-6">
+              <label className="block mb-2 font-medium">Currency</label>
+              <Dropdown
+                value={currency}
+                options={currencyOptions}
+                optionLabel="label"
+                optionValue="code"
+                onChange={(e) => setCurrency(e.value)}
+                className="w-full"
+              />
+            </div>
+
+            <div className="col-12 md:col-6">
+              <label className="block mb-2 font-medium">Payment Method</label>
+              <Dropdown
+                value={paymentMethod}
+                options={paymentOptions}
+                optionLabel="label"
+                optionValue="code"
+                onChange={(e) => setPaymentMethod(e.value)}
+                className="w-full"
+              />
+            </div>
+
+            <div className="col-12 md:col-6">
+              <label className="block mb-2 font-medium">Date</label>
+              <Calendar
+                value={date}
+                onChange={(e) => setDate(e.value)}
+                dateFormat="dd/mm/yy"
+                showIcon
+                className="w-full"
+              />
+            </div>
+
+            <div className="col-12">
+              <label className="block mb-2 font-medium">Note</label>
+              <InputTextarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={3}
+                autoResize
+                placeholder="Optional note"
+                className="w-full"
+              />
+            </div>
+
+            <div className="col-12">
               <Button
-                label="Add Record"
-                icon="pi pi-plus"
+                label="Save Record"
+                icon="pi pi-save"
                 onClick={handleAdd}
-                rounded
+                className="w-full"
               />
             </div>
-          </Card>
+          </div>
         </section>
 
-        <section style={{ marginBottom: "24px" }}>
-          <Card
-            style={{
-              borderRadius: "20px",
-              border: "1px solid #e5e7eb",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: "1rem",
-                flexWrap: "wrap",
-              }}
-            >
-              <h2 style={{ margin: 0, color: "#0f172a" }}>Search by Name</h2>
+        <section className="page-box">
+          <h2 className="mt-0">Search / Filter</h2>
 
-              <span
-                className="p-input-icon-left"
-                style={{ minWidth: "280px", flex: 1 }}
-              >
-                <i className="pi pi-search" />
-                <InputText
-                  placeholder="Search person name..."
-                  value={searchName}
-                  onChange={(e) => setSearchName(e.target.value)}
-                  style={{ width: "100%" }}
-                />
-              </span>
+          <div className="grid">
+            <div className="col-12 md:col-6">
+              <InputText
+                value={searchName}
+                onChange={(e) => setSearchName(e.target.value)}
+                placeholder="Search person name"
+                className="w-full"
+              />
             </div>
-          </Card>
+
+            <div className="col-12 md:col-6">
+              <Dropdown
+                value={selectedCurrencyFilter}
+                options={currencyFilterOptions}
+                onChange={(e) => setSelectedCurrencyFilter(e.value)}
+                className="w-full"
+              />
+            </div>
+          </div>
         </section>
 
-        <section style={{ marginBottom: "24px" }}>
-          <Card
-            style={{
-              borderRadius: "20px",
-              border: "1px solid #e5e7eb",
-            }}
+        <section className="page-box">
+          <div className="flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <h2 className="m-0">Pending / Partial Records</h2>
+
+            <Button
+              label="Export CSV"
+              icon="pi pi-download"
+              outlined
+              onClick={() => dtPending.current?.exportCSV()}
+            />
+          </div>
+
+          <DataTable
+            ref={dtPending}
+            value={filteredPendingList}
+            paginator
+            rows={5}
+            responsiveLayout="scroll"
+            emptyMessage="No pending records found."
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "16px",
-                flexWrap: "wrap",
-                gap: "0.75rem",
-              }}
-            >
-              <div>
-                <h2 style={{ margin: 0 }}>Pending / Partial Records</h2>
-                <p style={{ margin: "6px 0 0 0", color: "#64748b" }}>
-                  Showing:{" "}
-                  {selectedCurrencyFilter === "ALL"
-                    ? "All Currency"
-                    : selectedCurrencyFilter}
-                </p>
-              </div>
-
-              <Button
-                label="Export CSV"
-                icon="pi pi-download"
-                severity="success"
-                outlined
-                onClick={exportPendingCSV}
-              />
-            </div>
-
-            <DataTable
-              ref={dtPending}
-              value={filteredPendingList}
-              paginator
-              rows={8}
-              stripedRows
-              responsiveLayout="scroll"
-              emptyMessage="No pending records found"
-              tableStyle={{ minWidth: "1300px" }}
-            >
-              <Column field="personName" header="Person Name" sortable />
-              <Column header="Type" body={typeBody} />
-              <Column field="currency" header="Currency" sortable />
-              <Column
-                field="paymentMethod"
-                header="Original Method"
-                body={(rowData) => getPaymentLabel(rowData.paymentMethod)}
-              />
-              <Column field="date" header="Entry Date" sortable />
-              <Column
-                header="Total Amount"
-                body={(rowData) => amountBody(rowData, "totalAmount")}
-                sortable
-              />
-              <Column
-                header="Returned So Far"
-                body={(rowData) => amountBody(rowData, "returnedAmount")}
-                sortable
-              />
-              <Column
-                header="Left Amount"
-                body={(rowData) => amountBody(rowData, "remainingAmount")}
-                sortable
-              />
-              <Column
-                field="returnPaymentMethod"
-                header="Last Return Method"
-                body={(rowData) =>
-                  rowData.returnedAmount > 0
-                    ? getPaymentLabel(rowData.returnPaymentMethod)
-                    : "-"
-                }
-              />
-              <Column
-                field="returnDate"
-                header="Last Return Date"
-                body={(rowData) =>
-                  rowData.returnedAmount > 0 ? rowData.returnDate || "-" : "-"
-                }
-              />
-              <Column
-                field="returnNote"
-                header="Note"
-                body={(rowData) => rowData.returnNote || "-"}
-              />
-              <Column header="Status" body={statusBody} />
-              <Column
-                header="Actions"
-                body={actionBody}
-                exportable={false}
-                style={{ minWidth: "180px" }}
-              />
-            </DataTable>
-          </Card>
+            <Column field="personName" header="Person" />
+            <Column header="Type" body={typeBody} />
+            <Column
+              field="totalAmount"
+              header="Total"
+              body={(row) => amountBody(row, "totalAmount")}
+            />
+            <Column
+              field="returnedAmount"
+              header="Returned"
+              body={(row) => amountBody(row, "returnedAmount")}
+            />
+            <Column
+              field="remainingAmount"
+              header="Remaining"
+              body={(row) => amountBody(row, "remainingAmount")}
+            />
+            <Column field="paymentMethod" header="Payment" body={paymentBody} />
+            <Column field="date" header="Date" />
+            <Column header="Status" body={statusBody} />
+            <Column header="Action" body={actionBody} />
+          </DataTable>
         </section>
 
-        <section style={{ marginBottom: "24px" }}>
-          <Card
-            style={{
-              borderRadius: "20px",
-              border: "1px solid #e5e7eb",
-            }}
+        <section className="page-box">
+          <div className="flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <h2 className="m-0">Returned Records</h2>
+
+            <Button
+              label="Export CSV"
+              icon="pi pi-download"
+              outlined
+              onClick={() => dtReturned.current?.exportCSV()}
+            />
+          </div>
+
+          <DataTable
+            ref={dtReturned}
+            value={filteredCompletedList}
+            paginator
+            rows={5}
+            responsiveLayout="scroll"
+            emptyMessage="No returned records found."
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "16px",
-                flexWrap: "wrap",
-                gap: "0.75rem",
-              }}
-            >
-              <div>
-                <h2 style={{ margin: 0 }}>Fully Returned Records</h2>
-                <p style={{ margin: "6px 0 0 0", color: "#64748b" }}>
-                  Showing:{" "}
-                  {selectedCurrencyFilter === "ALL"
-                    ? "All Currency"
-                    : selectedCurrencyFilter}
-                </p>
-              </div>
-
-              <Button
-                label="Export CSV"
-                icon="pi pi-download"
-                severity="help"
-                outlined
-                onClick={exportReturnedCSV}
-              />
-            </div>
-
-            <DataTable
-              ref={dtReturned}
-              value={filteredCompletedList}
-              paginator
-              rows={8}
-              stripedRows
-              responsiveLayout="scroll"
-              emptyMessage="No returned records found"
-              tableStyle={{ minWidth: "1300px" }}
-            >
-              <Column field="personName" header="Person Name" sortable />
-              <Column header="Type" body={typeBody} />
-              <Column field="currency" header="Currency" sortable />
-              <Column
-                field="paymentMethod"
-                header="Original Method"
-                body={(rowData) => getPaymentLabel(rowData.paymentMethod)}
-              />
-              <Column field="date" header="Entry Date" sortable />
-              <Column
-                header="Total Amount"
-                body={(rowData) => amountBody(rowData, "totalAmount")}
-                sortable
-              />
-              <Column
-                header="Returned So Far"
-                body={(rowData) => amountBody(rowData, "returnedAmount")}
-                sortable
-              />
-              <Column
-                header="Left Amount"
-                body={(rowData) => amountBody(rowData, "remainingAmount")}
-                sortable
-              />
-              <Column
-                field="returnPaymentMethod"
-                header="Last Return Method"
-                body={(rowData) =>
-                  rowData.returnedAmount > 0
-                    ? getPaymentLabel(rowData.returnPaymentMethod)
-                    : "-"
-                }
-              />
-              <Column
-                field="returnDate"
-                header="Last Return Date"
-                body={(rowData) =>
-                  rowData.returnedAmount > 0 ? rowData.returnDate || "-" : "-"
-                }
-              />
-              <Column
-                field="returnNote"
-                header="Note"
-                body={(rowData) => rowData.returnNote || "-"}
-              />
-              <Column header="Status" body={statusBody} />
-              <Column
-                header="Actions"
-                body={actionBody}
-                exportable={false}
-                style={{ minWidth: "180px" }}
-              />
-            </DataTable>
-          </Card>
+            <Column field="personName" header="Person" />
+            <Column header="Type" body={typeBody} />
+            <Column
+              field="totalAmount"
+              header="Total"
+              body={(row) => amountBody(row, "totalAmount")}
+            />
+            <Column
+              field="returnedAmount"
+              header="Returned"
+              body={(row) => amountBody(row, "returnedAmount")}
+            />
+            <Column field="paymentMethod" header="Payment" body={paymentBody} />
+            <Column field="date" header="Date" />
+            <Column header="Status" body={statusBody} />
+            <Column header="Action" body={actionBody} />
+          </DataTable>
         </section>
 
         <Dialog
-          header="Add Return Amount"
+          header="Add Return"
           visible={returnModalOpen}
           style={{ width: "95%", maxWidth: "520px" }}
-          onHide={closeReturnModal}
           modal
-          breakpoints={{ "960px": "75vw", "640px": "95vw" }}
+          onHide={closeReturnModal}
         >
           {selectedReturnItem && (
-            <div
-              style={{
-                background: "#f8fafc",
-                border: "1px solid #e2e8f0",
-                borderRadius: "14px",
-                padding: "14px",
-                marginBottom: "14px",
-              }}
-            >
-              <p
-                style={{
-                  margin: "0 0 6px 0",
-                  fontWeight: "700",
-                  color: "#0f172a",
-                }}
-              >
-                {selectedReturnItem.personName}
-              </p>
-              <p style={{ margin: "4px 0", color: "#334155" }}>
-                Remaining Amount:{" "}
-                <b>
-                  {getCurrencySymbol(selectedReturnItem.currency || "INR")}
-                  {selectedReturnItem.remainingAmount}
-                </b>
-              </p>
+            <div className="grid">
+              <div className="col-12">
+                <p>
+                  Person: <b>{selectedReturnItem.personName}</b>
+                </p>
+                <p>
+                  Remaining:{" "}
+                  <b>
+                    {getCurrencySymbol(selectedReturnItem.currency)}
+                    {money(selectedReturnItem.remainingAmount).toFixed(2)}
+                  </b>
+                </p>
+              </div>
+
+              <div className="col-12">
+                <label className="block mb-2 font-medium">Return Amount</label>
+                <InputNumber
+                  value={returnAmount}
+                  onValueChange={(e) => setReturnAmount(e.value)}
+                  mode="decimal"
+                  min={0}
+                  minFractionDigits={0}
+                  maxFractionDigits={2}
+                  inputMode="decimal"
+                  placeholder="Example: 200.50"
+                  className="w-full"
+                />
+              </div>
+
+              <div className="col-12">
+                <label className="block mb-2 font-medium">
+                  Return Payment Method
+                </label>
+                <Dropdown
+                  value={returnPaymentMethod}
+                  options={paymentOptions}
+                  optionLabel="label"
+                  optionValue="code"
+                  onChange={(e) => setReturnPaymentMethod(e.value)}
+                  className="w-full"
+                />
+              </div>
+
+              <div className="col-12">
+                <label className="block mb-2 font-medium">Return Date</label>
+                <Calendar
+                  value={returnDate}
+                  onChange={(e) => setReturnDate(e.value)}
+                  dateFormat="dd/mm/yy"
+                  showIcon
+                  className="w-full"
+                />
+              </div>
+
+              <div className="col-12">
+                <label className="block mb-2 font-medium">Note</label>
+                <InputTextarea
+                  value={returnNote}
+                  onChange={(e) => setReturnNote(e.target.value)}
+                  rows={3}
+                  autoResize
+                  className="w-full"
+                />
+              </div>
+
+              <div className="col-12 flex gap-2">
+                <Button
+                  label="Cancel"
+                  severity="secondary"
+                  outlined
+                  onClick={closeReturnModal}
+                  className="w-full"
+                />
+
+                <Button
+                  label="Save Return"
+                  icon="pi pi-check"
+                  onClick={handleConfirmReturn}
+                  className="w-full"
+                />
+              </div>
             </div>
           )}
-
-          <div style={{ display: "grid", gap: "14px" }}>
-            <span className="p-float-label">
-              <InputNumber
-                id="returnAmount"
-                value={returnAmount}
-                onValueChange={(e) => setReturnAmount(e.value)}
-                mode="decimal"
-                min={0}
-                style={{ width: "100%" }}
-                inputStyle={{ width: "100%" }}
-              />
-              <label htmlFor="returnAmount">Return Amount</label>
-            </span>
-
-            <span className="p-float-label">
-              <Dropdown
-                id="returnPaymentMethod"
-                value={returnPaymentMethod}
-                options={paymentOptions.map((item) => ({
-                  label: item.label,
-                  value: item.code,
-                }))}
-                onChange={(e) => setReturnPaymentMethod(e.value)}
-                style={{ width: "100%" }}
-              />
-              <label htmlFor="returnPaymentMethod">Return Payment Method</label>
-            </span>
-
-            <span className="p-float-label">
-              <Calendar
-                id="returnDate"
-                value={returnDate}
-                onChange={(e) => setReturnDate(e.value)}
-                dateFormat="yy-mm-dd"
-                showIcon
-                style={{ width: "100%" }}
-                inputStyle={{ width: "100%" }}
-              />
-              <label htmlFor="returnDate">Return Date</label>
-            </span>
-
-            <span className="p-float-label">
-              <InputTextarea
-                id="returnNote"
-                value={returnNote}
-                onChange={(e) => setReturnNote(e.target.value)}
-                rows={3}
-                autoResize
-                style={{ width: "100%" }}
-              />
-              <label htmlFor="returnNote">Return Note</label>
-            </span>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: "10px",
-              marginTop: "18px",
-            }}
-          >
-            <Button
-              label="Cancel"
-              icon="pi pi-times"
-              severity="secondary"
-              outlined
-              onClick={closeReturnModal}
-            />
-            <Button
-              label="Save Return"
-              icon="pi pi-check"
-              severity="success"
-              onClick={handleConfirmReturn}
-            />
-          </div>
         </Dialog>
       </main>
     </div>

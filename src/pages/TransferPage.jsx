@@ -82,11 +82,13 @@ function TransferPage({ goPage }) {
   const formatDateForApi = (value) => {
     if (!value) return null;
     const d = new Date(value);
-    const year = d.getFullYear();
-    const month = `${d.getMonth() + 1}`.padStart(2, "0");
-    const day = `${d.getDate()}`.padStart(2, "0");
-    return `${year}-${month}-${day}`;
+    return `${d.getFullYear()}-${`${d.getMonth() + 1}`.padStart(
+      2,
+      "0"
+    )}-${`${d.getDate()}`.padStart(2, "0")}`;
   };
+
+  const money = (value) => Number(Number(value || 0).toFixed(2));
 
   const showSuccess = (detail) => {
     toast.current?.show({
@@ -110,42 +112,41 @@ function TransferPage({ goPage }) {
     let investment = 0;
 
     transactionList.forEach((t) => {
-      const amount = Number(t.amount || 0);
+      const amountValue = money(t.amount);
       const type = (t.type || "").toUpperCase();
       const method = (t.paymentMethod || t.account || "").toUpperCase();
 
       if (method === "CASH") {
-        if (type === "INCOME") cash += amount;
-        else if (type === "EXPENSE") cash -= amount;
+        if (type === "INCOME") cash += amountValue;
+        else if (type === "EXPENSE") cash -= amountValue;
       } else if (method === "BANK") {
-        if (type === "INCOME") bank += amount;
-        else if (type === "EXPENSE") bank -= amount;
+        if (type === "INCOME") bank += amountValue;
+        else if (type === "EXPENSE") bank -= amountValue;
       } else if (method === "INVESTMENT") {
-        if (type === "INCOME") investment += amount;
-        else if (type === "EXPENSE") investment -= amount;
+        if (type === "INCOME") investment += amountValue;
+        else if (type === "EXPENSE") investment -= amountValue;
       }
     });
 
     transferList.forEach((tr) => {
-      const amount = Number(tr.amount || 0);
+      const amountValue = money(tr.amount);
       const from = (tr.fromAccount || "").toUpperCase();
       const to = (tr.toAccount || "").toUpperCase();
 
-      if (from === "CASH") cash -= amount;
-      else if (from === "BANK") bank -= amount;
-      else if (from === "INVESTMENT") investment -= amount;
+      if (from === "CASH") cash -= amountValue;
+      else if (from === "BANK") bank -= amountValue;
+      else if (from === "INVESTMENT") investment -= amountValue;
 
-      if (to === "CASH") cash += amount;
-      else if (to === "BANK") bank += amount;
-      else if (to === "INVESTMENT") investment += amount;
+      if (to === "CASH") cash += amountValue;
+      else if (to === "BANK") bank += amountValue;
+      else if (to === "INVESTMENT") investment += amountValue;
     });
 
     setSummary({
-      cashBalance: cash,
-      bankBalance: bank,
-      investmentBalance: investment,
-      // IMPORTANT: only Cash + Bank
-      totalBalance: cash + bank,
+      cashBalance: money(cash),
+      bankBalance: money(bank),
+      investmentBalance: money(investment),
+      totalBalance: money(cash + bank),
     });
   };
 
@@ -168,7 +169,9 @@ function TransferPage({ goPage }) {
   };
 
   const handleSave = async () => {
-    if (!amount || Number(amount) <= 0) {
+    const cleanAmount = money(amount);
+
+    if (cleanAmount <= 0) {
       showError("Enter valid amount");
       return;
     }
@@ -180,11 +183,11 @@ function TransferPage({ goPage }) {
 
     try {
       await API.post("/transfers", {
-        amount: Number(amount),
+        amount: cleanAmount,
         fromAccount,
         toAccount,
         date: formatDateForApi(date),
-        note,
+        note: note.trim(),
         user: { id: userId },
       });
 
@@ -214,29 +217,33 @@ function TransferPage({ goPage }) {
           await refreshPage();
           showSuccess("Transfer deleted successfully");
         } catch (err) {
-          console.error("Error deleting transfer:", err);
+          console.error("Delete transfer error:", err);
           showError("Failed to delete transfer");
         }
       },
     });
   };
 
+  const amountBody = (rowData) => {
+    return (
+      <b>
+        {currencySymbol}
+        {money(rowData.amount).toFixed(2)}
+      </b>
+    );
+  };
+
+  const fromBody = (rowData) => getAccountLabel(rowData.fromAccount);
+  const toBody = (rowData) => getAccountLabel(rowData.toAccount);
+
   const actionBody = (rowData) => (
     <Button
-      label="Delete"
       icon="pi pi-trash"
       severity="danger"
+      rounded
       outlined
-      size="small"
       onClick={() => handleDelete(rowData.id)}
     />
-  );
-
-  const amountBody = (rowData) => (
-    <span style={{ fontWeight: 700 }}>
-      {currencySymbol}
-      {Number(rowData.amount || 0)}
-    </span>
   );
 
   return (
@@ -248,167 +255,139 @@ function TransferPage({ goPage }) {
       <main className="page-main">
         <section className="page-header">
           <h1>🏦 Transfer Money</h1>
-          <p>Transfer between Cash, Bank and Investment</p>
+          <p>Move money between Cash, Bank and Investment</p>
         </section>
 
-        <section style={{ marginBottom: "24px" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-              gap: "16px",
-            }}
-          >
-            <Card>
-              <h3 style={{ marginTop: 0 }}>Cash Balance</h3>
-              <p style={{ fontSize: "28px", fontWeight: "800", margin: 0 }}>
+        <div className="grid mb-4">
+          <div className="col-12 md:col-6 xl:col-3">
+            <Card className="shadow-2 border-round-2xl">
+              <p className="text-700 font-medium">Cash Balance</p>
+              <h2>
                 {currencySymbol}
-                {Number(summary.cashBalance || 0)}
-              </p>
-            </Card>
-
-            <Card>
-              <h3 style={{ marginTop: 0 }}>Bank Balance</h3>
-              <p style={{ fontSize: "28px", fontWeight: "800", margin: 0 }}>
-                {currencySymbol}
-                {Number(summary.bankBalance || 0)}
-              </p>
-            </Card>
-
-            <Card>
-              <h3 style={{ marginTop: 0 }}>Investment Balance</h3>
-              <p style={{ fontSize: "28px", fontWeight: "800", margin: 0 }}>
-                {currencySymbol}
-                {Number(summary.investmentBalance || 0)}
-              </p>
-            </Card>
-
-            <Card>
-              <h3 style={{ marginTop: 0 }}>Total Balance</h3>
-              <p style={{ fontSize: "28px", fontWeight: "800", margin: 0 }}>
-                {currencySymbol}
-                {Number(summary.totalBalance || 0)}
-              </p>
-              <small style={{ color: "#64748b" }}>Cash + Bank only</small>
+                {money(summary.cashBalance).toFixed(2)}
+              </h2>
             </Card>
           </div>
-        </section>
+
+          <div className="col-12 md:col-6 xl:col-3">
+            <Card className="shadow-2 border-round-2xl">
+              <p className="text-700 font-medium">Bank Balance</p>
+              <h2>
+                {currencySymbol}
+                {money(summary.bankBalance).toFixed(2)}
+              </h2>
+            </Card>
+          </div>
+
+          <div className="col-12 md:col-6 xl:col-3">
+            <Card className="shadow-2 border-round-2xl">
+              <p className="text-700 font-medium">Investment Balance</p>
+              <h2>
+                {currencySymbol}
+                {money(summary.investmentBalance).toFixed(2)}
+              </h2>
+            </Card>
+          </div>
+
+          <div className="col-12 md:col-6 xl:col-3">
+            <Card className="shadow-2 border-round-2xl">
+              <p className="text-700 font-medium">Total Saving</p>
+              <h2>
+                {currencySymbol}
+                {money(summary.totalBalance).toFixed(2)}
+              </h2>
+            </Card>
+          </div>
+        </div>
 
         <section className="page-box">
-          <h2 style={{ marginTop: 0, marginBottom: "18px" }}>Add Transfer</h2>
+          <h2 className="mt-0">Add Transfer</h2>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "14px",
-            }}
-          >
-            <span className="p-float-label">
+          <div className="grid">
+            <div className="col-12 md:col-6">
+              <label className="block mb-2 font-medium">Amount</label>
               <InputNumber
-                id="amount"
                 value={amount}
                 onValueChange={(e) => setAmount(e.value)}
                 mode="decimal"
                 min={0}
-                style={{ width: "100%" }}
-                inputStyle={{ width: "100%" }}
+                minFractionDigits={0}
+                maxFractionDigits={2}
+                inputMode="decimal"
+                placeholder="Example: 12.30"
+                className="w-full"
               />
-              <label htmlFor="amount">Amount ({currencySymbol})</label>
-            </span>
+            </div>
 
-            <span className="p-float-label">
+            <div className="col-12 md:col-6">
+              <label className="block mb-2 font-medium">From Account</label>
               <Dropdown
-                id="fromAccount"
                 value={fromAccount}
                 options={accountOptions}
                 onChange={(e) => setFromAccount(e.value)}
-                style={{ width: "100%" }}
+                className="w-full"
               />
-              <label htmlFor="fromAccount">From Account</label>
-            </span>
+            </div>
 
-            <span className="p-float-label">
+            <div className="col-12 md:col-6">
+              <label className="block mb-2 font-medium">To Account</label>
               <Dropdown
-                id="toAccount"
                 value={toAccount}
                 options={accountOptions}
                 onChange={(e) => setToAccount(e.value)}
-                style={{ width: "100%" }}
+                className="w-full"
               />
-              <label htmlFor="toAccount">To Account</label>
-            </span>
+            </div>
 
-            <span className="p-float-label">
+            <div className="col-12 md:col-6">
+              <label className="block mb-2 font-medium">Date</label>
               <Calendar
-                id="date"
                 value={date}
                 onChange={(e) => setDate(e.value)}
-                dateFormat="yy-mm-dd"
+                dateFormat="dd/mm/yy"
                 showIcon
-                style={{ width: "100%" }}
-                inputStyle={{ width: "100%" }}
+                className="w-full"
               />
-              <label htmlFor="date">Date</label>
-            </span>
-          </div>
+            </div>
 
-          <div style={{ marginTop: "14px" }}>
-            <span className="p-float-label">
+            <div className="col-12">
+              <label className="block mb-2 font-medium">Note</label>
               <InputTextarea
-                id="note"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={3}
                 autoResize
-                style={{ width: "100%" }}
+                placeholder="Optional note"
+                className="w-full"
               />
-              <label htmlFor="note">Note</label>
-            </span>
-          </div>
+            </div>
 
-          <div style={{ marginTop: "18px" }}>
-            <Button
-              label="Save Transfer"
-              icon="pi pi-check"
-              onClick={handleSave}
-            />
+            <div className="col-12">
+              <Button
+                label="Save Transfer"
+                icon="pi pi-save"
+                onClick={handleSave}
+                className="w-full"
+              />
+            </div>
           </div>
         </section>
 
         <section className="page-box">
-          <h2 style={{ marginTop: 0, marginBottom: "18px" }}>
-            Transfer History
-          </h2>
+          <h2 className="mt-0">Transfer History</h2>
 
           <DataTable
             value={list}
             paginator
-            rows={8}
-            stripedRows
+            rows={5}
             responsiveLayout="scroll"
-            emptyMessage="No transfer records found"
-            tableStyle={{ minWidth: "900px" }}
+            emptyMessage="No transfer records found."
           >
-            <Column field="date" header="Date" sortable />
-            <Column header="Amount" body={amountBody} sortable />
-            <Column
-              field="fromAccount"
-              header="From"
-              body={(rowData) => getAccountLabel(rowData.fromAccount)}
-              sortable
-            />
-            <Column
-              field="toAccount"
-              header="To"
-              body={(rowData) => getAccountLabel(rowData.toAccount)}
-              sortable
-            />
-            <Column
-              field="note"
-              header="Note"
-              body={(rowData) => rowData.note || "-"}
-            />
+            <Column field="amount" header="Amount" body={amountBody} />
+            <Column field="fromAccount" header="From" body={fromBody} />
+            <Column field="toAccount" header="To" body={toBody} />
+            <Column field="date" header="Date" />
+            <Column field="note" header="Note" />
             <Column header="Action" body={actionBody} />
           </DataTable>
         </section>
