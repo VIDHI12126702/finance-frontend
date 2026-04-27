@@ -1,36 +1,46 @@
-import { Card } from "primereact/card";
-import { getUserCurrencySymbol } from "../utils/currencyUtils";
-import { formatMoney } from "../utils/moneyUtils";
+import "./Sidebar.css";
 
-function SummaryCards({
-  bankBalance = 0,
-  cashBalance = 0,
-  investmentBalance = 0,
-  totalSaving = 0,
-}) {
-  const symbol = getUserCurrencySymbol();
-
-  const cards = [
-    { title: "🏦 Bank Balance", value: bankBalance },
-    { title: "💵 Cash Balance", value: cashBalance },
-    { title: "📈 Investment Balance", value: investmentBalance },
-    { title: "💰 Total Saving", value: totalSaving },
-  ];
-
+function Sidebar({ goPage }) {
   return (
-    <div className="grid mb-4 summary-responsive-grid">
-      {cards.map((item, index) => (
-        <div className="col-12 sm:col-6 xl:col-3" key={index}>
-          <Card className="shadow-2 border-round-2xl summary-mobile-card">
-            <div className="text-700 text-lg font-medium mb-2">{item.title}</div>
-            <div className="text-900 text-3xl font-bold">
-              {symbol} {formatMoney(item.value)}
-            </div>
-          </Card>
-        </div>
-      ))}
-    </div>
+    <>
+      <aside className="sidebar desktop-sidebar">
+        <div className="sidebar-logo">💰 Finance App</div>
+
+        <ul className="sidebar-menu">
+          <li onClick={() => goPage("home")}>🏠 Home</li>
+          <li onClick={() => goPage("dashboard")}>📊 Dashboard</li>
+          <li onClick={() => goPage("monthly")}>📅 Monthly</li>
+          <li onClick={() => goPage("yearly")}>📈 Yearly</li>
+          <li onClick={() => goPage("history")}>📜 History</li>
+          <li onClick={() => goPage("bills")}>🧾 Bills</li>
+          <li onClick={() => goPage("borrow")}>💸 Borrow</li>
+          <li onClick={() => goPage("transfer")}>🏦 Transfer</li>
+        </ul>
+
+        <button className="logout-btn" onClick={() => goPage("login")}>
+          🚪 Logout
+        </button>
+      </aside>
+
+      <nav className="mobile-bottom-nav">
+        <button onClick={() => goPage("home")}>
+          🏠<span>Home</span>
+        </button>
+        <button onClick={() => goPage("dashboard")}>
+          📊<span>Dash</span>
+        </button>
+        <button onClick={() => goPage("history")}>
+          📜<span>History</span>
+        </button>
+        <button onClick={() => goPage("borrow")}>
+          💸<span>Borrow</span>
+        </button>
+        <button onClick={() => goPage("transfer")}>
+          🏦<span>Transfer</span>
+        </button>
+      </nav>
+    </>
   );
 }
 
-export default SummaryCards;
+export default Sidebar;

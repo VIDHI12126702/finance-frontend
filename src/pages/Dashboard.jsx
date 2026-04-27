@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar";
 import SummaryCards from "../components/SummaryCards";
-import AddIncome from "../components/AddIncome";
-import AddExpense from "../components/AddExpense";
 import API from "../api";
 import {
   normalizeTransactions,
@@ -18,35 +16,23 @@ function Dashboard({ goPage }) {
   const userId = user?.id;
 
   useEffect(() => {
-    if (userId) {
-      refreshDashboard();
-    }
+    if (userId) refreshDashboard();
   }, [userId]);
 
-  const fetchTransactions = async () => {
+  const refreshDashboard = async () => {
     try {
-      const res = await API.get(`/transactions/user/${userId}`);
-      const normalized = normalizeTransactions(res.data || []);
-      setTransactions(normalized);
-    } catch (err) {
-      console.error("Error fetching transactions:", err);
-      setTransactions([]);
-    }
-  };
+      const [transactionRes, transferRes] = await Promise.all([
+        API.get(`/transactions/user/${userId}`),
+        API.get(`/transfers/user/${userId}`),
+      ]);
 
-  const fetchTransfers = async () => {
-    try {
-      const res = await API.get(`/transfers/user/${userId}`);
-      setTransfers(res.data || []);
+      setTransactions(normalizeTransactions(transactionRes.data || []));
+      setTransfers(transferRes.data || []);
     } catch (err) {
-      console.error("Error fetching transfers:", err);
+      console.error("Dashboard fetch error:", err);
+      setTransactions([]);
       setTransfers([]);
     }
-  };
-
-  const refreshDashboard = async () => {
-    await fetchTransactions();
-    await fetchTransfers();
   };
 
   const transactionSummary = calculateSummary(transactions);
@@ -69,7 +55,6 @@ function Dashboard({ goPage }) {
     else if (to === "INVESTMENT") investmentBalance += amount;
   });
 
-  // IMPORTANT: only Cash + Bank
   const totalSaving = cashBalance + bankBalance;
 
   return (
@@ -78,8 +63,8 @@ function Dashboard({ goPage }) {
 
       <main className="page-main">
         <section className="page-header">
-          <h1>💰 Finance Dashboard</h1>
-          <p>Manage your money smartly</p>
+          <h1>📊 Dashboard</h1>
+          <p>Your balance overview</p>
         </section>
 
         <SummaryCards
@@ -89,16 +74,12 @@ function Dashboard({ goPage }) {
           totalSaving={totalSaving}
         />
 
-        <section className="form-grid">
-          <div className="page-box">
-            <h3>💰 Add Income</h3>
-            <AddIncome fetchData={refreshDashboard} userId={userId} />
-          </div>
-
-          <div className="page-box">
-            <h3>💸 Add Expense</h3>
-            <AddExpense fetchData={refreshDashboard} userId={userId} />
-          </div>
+        <section className="page-box dashboard-clean-box">
+          <h2>Welcome back 👋</h2>
+          <p>
+            Use the <b>Home</b> page to add income and expenses. This dashboard
+            now shows only your financial summary.
+          </p>
         </section>
       </main>
     </div>

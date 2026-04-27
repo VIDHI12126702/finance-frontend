@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Welcome from "./pages/Welcome";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import HomePage from "./pages/HomePage";
 import Dashboard from "./pages/Dashboard";
 import MonthlyPage from "./pages/MonthlyPage";
 import YearlyPage from "./pages/YearlyPage";
@@ -20,9 +21,7 @@ function App() {
 
   useEffect(() => {
     const user = localStorage.getItem("loggedInUser");
-    if (user) {
-      setPage("dashboard");
-    }
+    if (user) setPage("home");
   }, []);
 
   const goPage = (nextPage) => {
@@ -41,44 +40,27 @@ function App() {
     );
   }
 
-  if (page === "register") {
-    return <Register goLogin={() => setPage("login")} />;
-  }
+  if (page === "register") return <Register goLogin={() => setPage("login")} />;
 
   if (page === "login") {
     return (
       <Login
-        goDashboard={() => setPage("dashboard")}
+        goDashboard={() => setPage("home")}
         goRegister={() => setPage("register")}
       />
     );
   }
 
-  if (page === "monthly") {
-    return <MonthlyPage goPage={goPage} />;
-  }
+  if (page === "home") return <HomePage goPage={goPage} />;
+  if (page === "dashboard") return <Dashboard goPage={goPage} />;
+  if (page === "monthly") return <MonthlyPage goPage={goPage} />;
+  if (page === "yearly") return <YearlyPage goPage={goPage} />;
+  if (page === "history") return <HistoryPage goPage={goPage} />;
+  if (page === "bills") return <BillsPage goPage={goPage} />;
+  if (page === "borrow") return <BorrowPage goPage={goPage} />;
+  if (page === "transfer") return <TransferPage goPage={goPage} />;
 
-  if (page === "yearly") {
-    return <YearlyPage goPage={goPage} />;
-  }
-
-  if (page === "history") {
-    return <HistoryPage goPage={goPage} />;
-  }
-
-  if (page === "bills") {
-    return <BillsPage goPage={goPage} />;
-  }
-
-  if (page === "borrow") {
-    return <BorrowPage goPage={goPage} />;
-  }
-
-  if (page === "transfer") {
-    return <TransferPage goPage={goPage} />;
-  }
-
-  return <Dashboard goPage={goPage} />;
+  return <HomePage goPage={goPage} />;
 }
 
 export default App;
