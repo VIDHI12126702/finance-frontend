@@ -8,6 +8,7 @@ import YearlyPage from "./pages/YearlyPage";
 import HistoryPage from "./pages/HistoryPage";
 import BillsPage from "./pages/BillsPage";
 import BorrowPage from "./pages/BorrowPage";
+import TransferPage from "./pages/TransferPage";
 
 import "primereact/resources/themes/lara-light-blue/theme.css";
 import "primereact/resources/primereact.min.css";
@@ -71,6 +72,10 @@ function App() {
 
   if (page === "borrow") {
     return <BorrowPage goPage={goPage} />;
+  }
+
+  if (page === "transfer") {
+    return <TransferPage goPage={goPage} />;
   }
 
   return <Dashboard goPage={goPage} />;

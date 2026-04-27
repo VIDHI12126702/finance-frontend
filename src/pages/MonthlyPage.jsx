@@ -8,6 +8,7 @@ import "./PageLayout.css";
 
 function MonthlyPage({ goPage }) {
   const [transactions, setTransactions] = useState([]);
+  const [transfers, setTransfers] = useState([]);
 
   const user = JSON.parse(localStorage.getItem("loggedInUser"));
   const userId = user?.id;
@@ -20,10 +21,17 @@ function MonthlyPage({ goPage }) {
 
   const fetchData = async () => {
     try {
-      const res = await API.get(`/transactions/user/${userId}`);
-      setTransactions(normalizeTransactions(res.data));
+      const [transactionRes, transferRes] = await Promise.all([
+        API.get(`/transactions/user/${userId}`),
+        API.get(`/transfers/user/${userId}`),
+      ]);
+
+      setTransactions(normalizeTransactions(transactionRes.data || []));
+      setTransfers(transferRes.data || []);
     } catch (err) {
       console.error("Error fetching monthly data:", err);
+      setTransactions([]);
+      setTransfers([]);
     }
   };
 
@@ -34,13 +42,13 @@ function MonthlyPage({ goPage }) {
       <main className="page-main">
         <section className="page-header">
           <h1>📅 Monthly Analysis</h1>
-          <p>Check your month-wise income and expense details</p>
+          <p>Check your month-wise income, expense and transfer details</p>
         </section>
 
-        <MonthlyReport transactions={transactions} />
+        <MonthlyReport transactions={transactions} transfers={transfers} />
 
         <div style={{ marginTop: "24px" }}>
-          <MonthlyHistory transactions={transactions} />
+          <MonthlyHistory transactions={transactions} transfers={transfers} />
         </div>
       </main>
     </div>

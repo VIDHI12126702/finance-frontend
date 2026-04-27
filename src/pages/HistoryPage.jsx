@@ -12,22 +12,63 @@ function HistoryPage({ goPage }) {
   const [typeFilter, setTypeFilter] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [dateFilter, setDateFilter] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const user = JSON.parse(localStorage.getItem("loggedInUser"));
-  const userId = user?.id;
+  const getLoggedInUserId = () => {
+    try {
+      const loggedInUser = localStorage.getItem("loggedInUser");
+      const user = localStorage.getItem("user");
+      const userId = localStorage.getItem("userId");
+
+      if (loggedInUser) {
+        const parsed = JSON.parse(loggedInUser);
+        if (parsed?.id) return parsed.id;
+      }
+
+      if (user) {
+        const parsed = JSON.parse(user);
+        if (parsed?.id) return parsed.id;
+      }
+
+      if (userId) {
+        return Number(userId);
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Error reading user from localStorage:", error);
+      return null;
+    }
+  };
+
+  const currentUserId = getLoggedInUserId();
 
   useEffect(() => {
-    if (userId) {
-      fetchData();
+    if (currentUserId) {
+      fetchData(currentUserId);
+    } else {
+      console.error("No logged-in user id found");
+      setTransactions([]);
     }
-  }, [userId]);
+  }, []);
 
-  const fetchData = async () => {
+  const fetchData = async (passedUserId = currentUserId) => {
+    if (!passedUserId) {
+      console.error("User id missing while fetching history");
+      setTransactions([]);
+      return;
+    }
+
     try {
-      const res = await API.get(`/transactions/user/${userId}`);
+      setLoading(true);
+      const res = await API.get(`/transactions/user/${passedUserId}`);
+      console.log("History API response:", res.data);
       setTransactions(normalizeTransactions(res.data));
     } catch (err) {
       console.error("Error fetching history:", err);
+      setTransactions([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -45,7 +86,8 @@ function HistoryPage({ goPage }) {
         (t.type || "").toLowerCase().includes(searchText.toLowerCase()) ||
         (t.category || "").toLowerCase().includes(searchText.toLowerCase()) ||
         String(t.amount || "").includes(searchText) ||
-        (t.date || "").includes(searchText);
+        (t.date || "").includes(searchText) ||
+        (t.note || "").toLowerCase().includes(searchText.toLowerCase());
 
       const matchesType =
         typeFilter === "All" || (t.type || "") === typeFilter;
@@ -74,7 +116,7 @@ function HistoryPage({ goPage }) {
           <div className="history-filter-grid">
             <input
               type="text"
-              placeholder="Search by type, category, amount or date"
+              placeholder="Search by type, category, amount, date or note"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               className="history-input"
@@ -126,10 +168,16 @@ function HistoryPage({ goPage }) {
             </button>
           </div>
 
-          <TransactionTable
-            transactions={filteredTransactions}
-            fetchData={fetchData}
-          />
+          {loading ? (
+            <p style={{ textAlign: "center", marginTop: "20px" }}>Loading...</p>
+          ) : (
+            <TransactionTable
+  transactions={filteredTransactions}
+  fetchData={() => fetchData(currentUserId)}
+  userId={currentUserId}
+/>
+
+          )}
         </section>
       </main>
     </div>

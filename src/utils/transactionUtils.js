@@ -1,44 +1,55 @@
-export function normalizeTransactions(data = []) {
-  return data.map((t) => {
-    const parsedDate = t.date ? new Date(t.date) : new Date();
+export const normalizeTransactions = (transactions = []) => {
+  return transactions.map((item) => ({
+    ...item,
+    amount: Number(item.amount || 0),
+    type: item.type || "",
+    category: item.category || "",
+    account: item.account || "BANK",
+    notes: item.notes || "",
+    date: item.date || "",
+  }));
+};
 
-    return {
-      ...t,
-      amount: Number(t.amount || 0),
-      date: t.date ? t.date : parsedDate.toISOString().split("T")[0],
-      month:
-        t.month !== undefined && t.month !== null
-          ? Number(t.month)
-          : parsedDate.getMonth(),
-      year:
-        t.year !== undefined && t.year !== null
-          ? Number(t.year)
-          : parsedDate.getFullYear(),
-      bill: t.bill || null,
-      category: t.category || "",
-    };
-  });
-}
+export const calculateSummary = (transactions = []) => {
+  let bankBalance = 0;
+  let cashBalance = 0;
+  let investmentBalance = 0;
 
-export function calculateSummary(transactions = []) {
-  let income = 0;
-  let expense = 0;
-  let investment = 0;
+  transactions.forEach((item) => {
+    const amount = Number(item.amount || 0);
+    const signedAmount = item.type === "INCOME" ? amount : -amount;
 
-  transactions.forEach((t) => {
-    if (t.type === "Income") {
-      income += Number(t.amount);
-    } else if (t.type === "Investment") {
-      investment += Number(t.amount);
-    } else {
-      expense += Number(t.amount);
+    if (item.account === "BANK") {
+      bankBalance += signedAmount;
+    } else if (item.account === "CASH") {
+      cashBalance += signedAmount;
+    } else if (item.account === "INVESTMENT") {
+      investmentBalance += signedAmount;
     }
   });
 
+  const totalSaving = bankBalance + cashBalance + investmentBalance;
+
   return {
-    income,
-    expense,
-    investment,
-    balance: income - expense - investment,
+    bankBalance,
+    cashBalance,
+    investmentBalance,
+    totalSaving,
   };
-}
+};
+
+export const filterTransactionsByMonth = (transactions = [], month, year) => {
+  return transactions.filter((item) => {
+    if (!item.date) return false;
+    const d = new Date(item.date);
+    return d.getMonth() + 1 === month && d.getFullYear() === year;
+  });
+};
+
+export const filterTransactionsByYear = (transactions = [], year) => {
+  return transactions.filter((item) => {
+    if (!item.date) return false;
+    const d = new Date(item.date);
+    return d.getFullYear() === year;
+  });
+};

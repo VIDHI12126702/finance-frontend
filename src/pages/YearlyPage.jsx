@@ -7,6 +7,7 @@ import "./PageLayout.css";
 
 function YearlyPage({ goPage }) {
   const [transactions, setTransactions] = useState([]);
+  const [transfers, setTransfers] = useState([]);
 
   const user = JSON.parse(localStorage.getItem("loggedInUser"));
   const userId = user?.id;
@@ -19,10 +20,17 @@ function YearlyPage({ goPage }) {
 
   const fetchData = async () => {
     try {
-      const res = await API.get(`/transactions/user/${userId}`);
-      setTransactions(normalizeTransactions(res.data));
+      const [transactionRes, transferRes] = await Promise.all([
+        API.get(`/transactions/user/${userId}`),
+        API.get(`/transfers/user/${userId}`),
+      ]);
+
+      setTransactions(normalizeTransactions(transactionRes.data || []));
+      setTransfers(transferRes.data || []);
     } catch (err) {
       console.error("Error fetching yearly data:", err);
+      setTransactions([]);
+      setTransfers([]);
     }
   };
 
@@ -33,10 +41,10 @@ function YearlyPage({ goPage }) {
       <main className="page-main">
         <section className="page-header">
           <h1>📈 Yearly Analysis</h1>
-          <p>Track your yearly savings performance</p>
+          <p>Track your yearly balance performance</p>
         </section>
 
-        <YearlyAnalytics transactions={transactions} />
+        <YearlyAnalytics transactions={transactions} transfers={transfers} />
       </main>
     </div>
   );

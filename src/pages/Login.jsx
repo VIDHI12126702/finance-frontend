@@ -1,7 +1,6 @@
 import { useState } from "react";
 import API from "../api";
 import { InputText } from "primereact/inputtext";
-import { Password } from "primereact/password";
 import { Button } from "primereact/button";
 import { Card } from "primereact/card";
 
@@ -11,23 +10,25 @@ function Login({ goDashboard, goRegister }) {
   const [error, setError] = useState("");
 
   const handleLogin = async () => {
-    if (!username || !password) {
+    setError("");
+
+    const payload = {
+      username: username.trim(),
+      password: password.trim(),
+    };
+
+    if (!payload.username || !payload.password) {
       setError("Please enter username and password");
       return;
     }
 
     try {
-      const res = await API.post("/auth/login", {
-        username,
-        password,
-      });
-
+      const res = await API.post("/auth/login", payload);
       localStorage.setItem("loggedInUser", JSON.stringify(res.data));
-      setError("");
       goDashboard();
     } catch (err) {
       console.error("Login error:", err);
-      setError("Invalid username or password");
+      setError(err?.response?.data?.message || "Invalid username or password");
     }
   };
 
@@ -69,13 +70,18 @@ function Login({ goDashboard, goRegister }) {
 
         <div className="field mb-3">
           <label>Password</label>
-          <Password
-            className="w-full"
+          <input
+            type="password"
+            className="w-full p-inputtext"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            toggleMask
-            feedback={false}
             placeholder="Enter password"
+            style={{
+              width: "100%",
+              padding: "12px",
+              borderRadius: "6px",
+              border: "1px solid #ced4da",
+            }}
           />
         </div>
 

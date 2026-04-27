@@ -12,6 +12,7 @@ function Sidebar({ goPage }) {
         <li onClick={() => goPage("history")}>📜 Transaction History</li>
         <li onClick={() => goPage("bills")}>🧾 Personal Bills</li>
         <li onClick={() => goPage("borrow")}>💸 Borrow / Lend</li>
+        <li onClick={() => goPage("transfer")}>🏦 Transfer</li>
       </ul>
 
       <button className="logout-btn" onClick={() => goPage("login")}>

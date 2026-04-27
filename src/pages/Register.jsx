@@ -1,16 +1,18 @@
 import { useState } from "react";
 import API from "../api";
 import { InputText } from "primereact/inputtext";
-import { Password } from "primereact/password";
 import { Button } from "primereact/button";
 import { Card } from "primereact/card";
 
 function Register({ goLogin }) {
-  const [name, setName] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [country, setCountry] = useState("India");
-  const [currency, setCurrency] = useState("INR");
+  const [formData, setFormData] = useState({
+    name: "",
+    username: "",
+    password: "",
+    country: "India",
+    currency: "INR",
+  });
+
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -24,44 +26,67 @@ function Register({ goLogin }) {
     { country: "Australia", currency: "AUD" },
     { country: "New Zealand", currency: "NZD" },
     { country: "Singapore", currency: "SGD" },
-    { country: "Japan", currency: "JPY" }
+    { country: "Japan", currency: "JPY" },
   ];
 
-  const handleCountryChange = (value) => {
-    setCountry(value);
-    const selected = countryOptions.find((item) => item.country === value);
-    if (selected) {
-      setCurrency(selected.currency);
-    }
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleCountryChange = (e) => {
+    const selectedCountry = e.target.value;
+    const selected = countryOptions.find(
+      (item) => item.country === selectedCountry
+    );
+
+    setFormData((prev) => ({
+      ...prev,
+      country: selectedCountry,
+      currency: selected ? selected.currency : "INR",
+    }));
   };
 
   const handleRegister = async () => {
-    if (!name || !username || !password || !country || !currency) {
+    setError("");
+    setMessage("");
+
+    const payload = {
+      name: formData.name.trim(),
+      username: formData.username.trim(),
+      password: formData.password.trim(),
+      country: formData.country,
+      currency: formData.currency,
+    };
+
+    if (
+      !payload.name ||
+      !payload.username ||
+      !payload.password ||
+      !payload.country ||
+      !payload.currency
+    ) {
       setError("Please fill all fields");
-      setMessage("");
       return;
     }
 
     try {
-      await API.post("/auth/register", {
-        name,
-        username,
-        password,
-        country,
-        currency,
-      });
+      await API.post("/auth/register", payload);
 
       setMessage("Registration successful. Now login.");
-      setError("");
-      setName("");
-      setUsername("");
-      setPassword("");
-      setCountry("India");
-      setCurrency("INR");
+      setFormData({
+        name: "",
+        username: "",
+        password: "",
+        country: "India",
+        currency: "INR",
+      });
     } catch (err) {
-      console.error("Register error:", err);
+      console.error("Register error:", err?.response?.data || err);
       setError(err?.response?.data?.message || "Registration failed");
-      setMessage("");
     }
   };
 
@@ -93,9 +118,10 @@ function Register({ goLogin }) {
         <div className="field mb-3">
           <label>Name</label>
           <InputText
+            name="name"
             className="w-full"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            value={formData.name}
+            onChange={handleChange}
             placeholder="Enter name"
           />
         </div>
@@ -103,30 +129,37 @@ function Register({ goLogin }) {
         <div className="field mb-3">
           <label>Username</label>
           <InputText
+            name="username"
             className="w-full"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            value={formData.username}
+            onChange={handleChange}
             placeholder="Enter username"
           />
         </div>
 
         <div className="field mb-3">
           <label>Password</label>
-          <Password
-            className="w-full"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            toggleMask
-            feedback={false}
+          <input
+            name="password"
+            type="password"
+            className="w-full p-inputtext"
+            value={formData.password}
+            onChange={handleChange}
             placeholder="Enter password"
+            style={{
+              width: "100%",
+              padding: "12px",
+              borderRadius: "6px",
+              border: "1px solid #ced4da",
+            }}
           />
         </div>
 
         <div className="field mb-3">
           <label>Country</label>
           <select
-            value={country}
-            onChange={(e) => handleCountryChange(e.target.value)}
+            value={formData.country}
+            onChange={handleCountryChange}
             style={{
               width: "100%",
               padding: "12px",
@@ -144,7 +177,7 @@ function Register({ goLogin }) {
 
         <div className="field mb-3">
           <label>Currency</label>
-          <InputText className="w-full" value={currency} readOnly />
+          <InputText className="w-full" value={formData.currency} readOnly />
         </div>
 
         <Button

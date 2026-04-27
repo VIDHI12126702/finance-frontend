@@ -1,23 +1,43 @@
-export function getUserCurrencyCode() {
-  const user = JSON.parse(localStorage.getItem("loggedInUser"));
-  return user?.currency || "INR";
-}
+export const getUserCurrency = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem("loggedInUser"));
 
-export function getUserCurrencySymbol() {
-  const currency = getUserCurrencyCode();
+    if (!user) return "INR";
 
-  const symbolMap = {
-    INR: "₹",
-    USD: "$",
-    CAD: "C$",
-    AED: "د.إ ",
-    EUR: "€",
-    GBP: "£",
-    AUD: "A$",
-    NZD: "NZ$",
-    SGD: "S$",
-    JPY: "¥",
-  };
+    if (user.currency) {
+      return user.currency.toUpperCase();
+    }
 
-  return symbolMap[currency] || currency + " ";
-}
+    if (user.country) {
+      const country = user.country.toLowerCase();
+
+      if (country === "canada") return "CAD";
+      if (country === "india") return "INR";
+      if (country === "usa" || country === "united states") return "USD";
+      if (country === "uk" || country === "united kingdom") return "GBP";
+      if (country === "australia") return "AUD";
+    }
+
+    return "INR";
+  } catch (error) {
+    return "INR";
+  }
+};
+
+export const getUserCurrencySymbol = () => {
+  const currency = getUserCurrency();
+
+  switch (currency) {
+    case "CAD":
+      return "C$";
+    case "USD":
+      return "$";
+    case "GBP":
+      return "£";
+    case "AUD":
+      return "A$";
+    case "INR":
+    default:
+      return "₹";
+  }
+};
