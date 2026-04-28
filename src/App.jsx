@@ -27,8 +27,12 @@ function App() {
   const goPage = (nextPage) => {
     if (nextPage === "login") {
       localStorage.removeItem("loggedInUser");
+      setPage("login");
+      return;
     }
+
     setPage(nextPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   if (page === "welcome") {
@@ -51,16 +55,16 @@ function App() {
     );
   }
 
-  if (page === "home") return <HomePage goPage={goPage} />;
-  if (page === "dashboard") return <Dashboard goPage={goPage} />;
-  if (page === "monthly") return <MonthlyPage goPage={goPage} />;
-  if (page === "yearly") return <YearlyPage goPage={goPage} />;
-  if (page === "history") return <HistoryPage goPage={goPage} />;
-  if (page === "bills") return <BillsPage goPage={goPage} />;
-  if (page === "borrow") return <BorrowPage goPage={goPage} />;
-  if (page === "transfer") return <TransferPage goPage={goPage} />;
+  if (page === "home") return <HomePage goPage={goPage} activePage={page} />;
+  if (page === "dashboard") return <Dashboard goPage={goPage} activePage={page} />;
+  if (page === "monthly") return <MonthlyPage goPage={goPage} activePage={page} />;
+  if (page === "yearly") return <YearlyPage goPage={goPage} activePage={page} />;
+  if (page === "history") return <HistoryPage goPage={goPage} activePage={page} />;
+  if (page === "bills") return <BillsPage goPage={goPage} activePage={page} />;
+  if (page === "borrow") return <BorrowPage goPage={goPage} activePage={page} />;
+  if (page === "transfer") return <TransferPage goPage={goPage} activePage={page} />;
 
-  return <HomePage goPage={goPage} />;
+  return <HomePage goPage={goPage} activePage="home" />;
 }
 
 export default App;

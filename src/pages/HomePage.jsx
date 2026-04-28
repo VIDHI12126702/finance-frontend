@@ -1,168 +1,148 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar";
+import SummaryCards from "../components/SummaryCards";
 import AddIncome from "../components/AddIncome";
 import AddExpense from "../components/AddExpense";
 import API from "../api";
+import {
+  normalizeTransactions,
+  calculateSummary,
+} from "../utils/transactionUtils";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
-import { normalizeTransactions } from "../utils/transactionUtils";
-import { getUserCurrencySymbol } from "../utils/currencyUtils";
-import { formatMoney } from "../utils/moneyUtils";
 import "./PageLayout.css";
 
-function HomePage({ goPage }) {
+function HomePage({ goPage, activePage }) {
   const [transactions, setTransactions] = useState([]);
+  const [transfers, setTransfers] = useState([]);
+
   const [incomeDialog, setIncomeDialog] = useState(false);
   const [expenseDialog, setExpenseDialog] = useState(false);
 
   const user = JSON.parse(localStorage.getItem("loggedInUser"));
   const userId = user?.id;
-  const symbol = getUserCurrencySymbol();
 
   useEffect(() => {
-    if (userId) fetchData();
+    if (userId) refreshData();
   }, [userId]);
 
-  const fetchData = async () => {
+  const money = (value) => Number(Number(value || 0).toFixed(2));
+
+  const refreshData = async () => {
     try {
-      const res = await API.get(`/transactions/user/${userId}`);
-      setTransactions(normalizeTransactions(res.data || []));
+      const [tRes, trRes] = await Promise.all([
+        API.get(`/transactions/user/${userId}`),
+        API.get(`/transfers/user/${userId}`),
+      ]);
+
+      setTransactions(normalizeTransactions(tRes.data || []));
+      setTransfers(trRes.data || []);
     } catch (err) {
-      console.error("Home fetch error:", err);
-      setTransactions([]);
+      console.error("Home load error:", err);
     }
   };
 
-  const incomeList = useMemo(
-    () => transactions.filter((t) => t.type === "INCOME").slice(0, 6),
-    [transactions]
-  );
+  const summary = calculateSummary(transactions);
 
-  const expenseList = useMemo(
-    () => transactions.filter((t) => t.type === "EXPENSE").slice(0, 6),
-    [transactions]
-  );
+  let cashBalance = money(summary.cashBalance);
+  let bankBalance = money(summary.bankBalance);
+  let investmentBalance = money(summary.investmentBalance);
 
-  const closeIncome = async () => {
-    setIncomeDialog(false);
-    await fetchData();
-  };
+  // transfer adjust
+  transfers.forEach((tr) => {
+    const amt = money(tr.amount);
+    const from = (tr.fromAccount || "").toUpperCase();
+    const to = (tr.toAccount || "").toUpperCase();
 
-  const closeExpense = async () => {
-    setExpenseDialog(false);
-    await fetchData();
-  };
+    if (from === "CASH") cashBalance -= amt;
+    if (from === "BANK") bankBalance -= amt;
+    if (from === "INVESTMENT") investmentBalance -= amt;
 
-  const TableCard = ({ title, items, type }) => (
-    <div className="home-table-card">
-      <div className="home-table-header">
-        <h2>{title}</h2>
-        <span>{items.length} Recent</span>
-      </div>
+    if (to === "CASH") cashBalance += amt;
+    if (to === "BANK") bankBalance += amt;
+    if (to === "INVESTMENT") investmentBalance += amt;
+  });
 
-      {items.length === 0 ? (
-        <p className="home-empty">No records found.</p>
-      ) : (
-        <div className="home-list">
-          {items.map((item) => (
-            <div className="home-row" key={item.id}>
-              <div>
-                <h4>{item.category || "-"}</h4>
-                <p>
-                  {item.account || "BANK"} • {item.date || "-"}
-                </p>
-                {item.notes && <small>{item.notes}</small>}
-              </div>
-
-              <strong
-                className={type === "income" ? "money-green" : "money-red"}
-              >
-                {type === "income" ? "+" : "-"} {symbol}
-                {formatMoney(item.amount)}
-              </strong>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  const totalSaving = money(bankBalance + cashBalance);
 
   return (
     <div className="page-layout">
-      <Sidebar goPage={goPage} />
+      <Sidebar goPage={goPage} activePage={activePage} />
 
       <main className="page-main">
         <section className="page-header">
-          <h1>🏠 Home</h1>
-          <p>Add income or expense quickly</p>
+          <h1>🏠 Home Dashboard</h1>
+          <p>Quick overview + quick actions</p>
         </section>
 
+        {/* SUMMARY */}
+        <SummaryCards
+          bankBalance={bankBalance}
+          cashBalance={cashBalance}
+          investmentBalance={investmentBalance}
+          totalSaving={totalSaving}
+        />
+
+        {/* ACTION BUTTONS */}
         <section className="home-action-grid">
-          <div className="home-action-card income-action">
-            <div>
-              <h2>💰 Add Income</h2>
-              <p>Add salary, returned money or other income.</p>
-            </div>
+          <div className="action-card income-card">
+            <h2>💰 Add Income</h2>
+            <p>Add salary, return money, etc.</p>
 
             <Button
-              label="Open Income Form"
+              label="Add Income"
               icon="pi pi-plus"
-              className="w-full"
               severity="success"
+              className="w-full"
               onClick={() => setIncomeDialog(true)}
             />
           </div>
 
-          <div className="home-action-card expense-action">
-            <div>
-              <h2>💸 Add Expense</h2>
-              <p>Add bills, grocery, rent, personal use and more.</p>
-            </div>
+          <div className="action-card expense-card">
+            <h2>💸 Add Expense</h2>
+            <p>Add bills, grocery, rent, etc.</p>
 
             <Button
-              label="Open Expense Form"
+              label="Add Expense"
               icon="pi pi-minus"
-              className="w-full"
               severity="danger"
+              className="w-full"
               onClick={() => setExpenseDialog(true)}
             />
           </div>
         </section>
 
-        <section className="home-table-grid">
-          <TableCard title="💰 Income Records" items={incomeList} type="income" />
-          <TableCard title="💸 Expense Records" items={expenseList} type="expense" />
-        </section>
-
+        {/* POPUP INCOME */}
         <Dialog
           header="💰 Add Income"
           visible={incomeDialog}
+          style={{ width: "95%", maxWidth: "650px" }}
           modal
-          style={{ width: "95%", maxWidth: "700px" }}
-          onHide={closeIncome}
+          onHide={() => setIncomeDialog(false)}
         >
           <AddIncome
-            fetchData={async () => {
-              await fetchData();
+            userId={userId}
+            fetchData={() => {
+              refreshData();
               setIncomeDialog(false);
             }}
-            userId={userId}
           />
         </Dialog>
 
+        {/* POPUP EXPENSE */}
         <Dialog
           header="💸 Add Expense"
           visible={expenseDialog}
+          style={{ width: "95%", maxWidth: "650px" }}
           modal
-          style={{ width: "95%", maxWidth: "700px" }}
-          onHide={closeExpense}
+          onHide={() => setExpenseDialog(false)}
         >
           <AddExpense
-            fetchData={async () => {
-              await fetchData();
+            userId={userId}
+            fetchData={() => {
+              refreshData();
               setExpenseDialog(false);
             }}
-            userId={userId}
           />
         </Dialog>
       </main>

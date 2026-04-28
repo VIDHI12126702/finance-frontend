@@ -1,19 +1,32 @@
 import "./Sidebar.css";
 
-function Sidebar({ goPage }) {
+function Sidebar({ goPage, activePage }) {
+  const menuItems = [
+    { key: "home", icon: "🏠", label: "Home" },
+    { key: "dashboard", icon: "📊", label: "Dashboard" },
+    { key: "monthly", icon: "🗓️", label: "Monthly" },
+    { key: "yearly", icon: "📈", label: "Yearly" },
+    { key: "history", icon: "📜", label: "History" },
+    { key: "bills", icon: "🧾", label: "Bills" },
+    { key: "borrow", icon: "💸", label: "Borrow" },
+    { key: "transfer", icon: "🏦", label: "Transfer" },
+  ];
+
   return (
     <>
       <aside className="sidebar desktop-sidebar">
         <div className="sidebar-logo">💰 Finance App</div>
 
         <ul className="sidebar-menu">
-          <li onClick={() => goPage("dashboard")}>📊 Dashboard</li>
-          <li onClick={() => goPage("monthly")}>📅 Monthly</li>
-          <li onClick={() => goPage("yearly")}>📈 Yearly</li>
-          <li onClick={() => goPage("history")}>📜 History</li>
-          <li onClick={() => goPage("bills")}>🧾 Bills</li>
-          <li onClick={() => goPage("borrow")}>💸 Borrow</li>
-          <li onClick={() => goPage("transfer")}>🏦 Transfer</li>
+          {menuItems.map((item) => (
+            <li
+              key={item.key}
+              className={activePage === item.key ? "active-menu" : ""}
+              onClick={() => goPage(item.key)}
+            >
+              <span>{item.icon}</span> {item.label}
+            </li>
+          ))}
         </ul>
 
         <button className="logout-btn" onClick={() => goPage("login")}>
@@ -22,11 +35,40 @@ function Sidebar({ goPage }) {
       </aside>
 
       <nav className="mobile-bottom-nav">
-        <button onClick={() => goPage("dashboard")}>📊<span>Home</span></button>
-        <button onClick={() => goPage("history")}>📜<span>History</span></button>
-        <button onClick={() => goPage("borrow")}>💸<span>Borrow</span></button>
-        <button onClick={() => goPage("transfer")}>🏦<span>Transfer</span></button>
-        <button onClick={() => goPage("login")}>🚪<span>Logout</span></button>
+        <button
+          className={activePage === "home" ? "active-mobile" : ""}
+          onClick={() => goPage("home")}
+        >
+          🏠<span>Home</span>
+        </button>
+
+        <button
+          className={activePage === "dashboard" ? "active-mobile" : ""}
+          onClick={() => goPage("dashboard")}
+        >
+          📊<span>Dash</span>
+        </button>
+
+        <button
+          className={activePage === "history" ? "active-mobile" : ""}
+          onClick={() => goPage("history")}
+        >
+          📜<span>History</span>
+        </button>
+
+        <button
+          className={activePage === "borrow" ? "active-mobile" : ""}
+          onClick={() => goPage("borrow")}
+        >
+          💸<span>Borrow</span>
+        </button>
+
+        <button
+          className={activePage === "transfer" ? "active-mobile" : ""}
+          onClick={() => goPage("transfer")}
+        >
+          🏦<span>Transfer</span>
+        </button>
       </nav>
     </>
   );
