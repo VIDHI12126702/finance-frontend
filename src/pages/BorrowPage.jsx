@@ -17,7 +17,7 @@ import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 
-function BorrowPage({ goPage }) {
+function BorrowPage({ goPage, activePage }) {
   const toast = useRef(null);
   const dtPending = useRef(null);
   const dtReturned = useRef(null);
@@ -70,9 +70,7 @@ function BorrowPage({ goPage }) {
   const userId = user?.id;
 
   useEffect(() => {
-    if (userId) {
-      fetchData();
-    }
+    if (userId) fetchData();
   }, [userId]);
 
   const money = (value) => Number(Number(value || 0).toFixed(2));
@@ -80,10 +78,26 @@ function BorrowPage({ goPage }) {
   const formatDateForApi = (value) => {
     if (!value) return null;
     const d = new Date(value);
-    return `${d.getFullYear()}-${`${d.getMonth() + 1}`.padStart(
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
       2,
       "0"
-    )}-${`${d.getDate()}`.padStart(2, "0")}`;
+    )}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  const showSuccess = (detail) => {
+    toast.current?.show({
+      severity: "success",
+      summary: "Success",
+      detail,
+    });
+  };
+
+  const showError = (detail) => {
+    toast.current?.show({
+      severity: "error",
+      summary: "Error",
+      detail,
+    });
   };
 
   const normalizeBorrowItem = (item) => {
@@ -116,8 +130,7 @@ function BorrowPage({ goPage }) {
   const fetchData = async () => {
     try {
       const res = await API.get(`/borrow/user/${userId}`);
-      const raw = res.data || [];
-      setList(raw.map(normalizeBorrowItem));
+      setList((res.data || []).map(normalizeBorrowItem));
     } catch (err) {
       console.error("Error fetching borrow/lend data:", err);
       showError("Failed to load records");
@@ -125,33 +138,24 @@ function BorrowPage({ goPage }) {
   };
 
   const getCurrencySymbol = (code) => {
-    const found = currencyOptions.find((item) => item.code === code);
-    return found ? found.symbol : `${code} `;
+    const found = currencyOptions.find(
+      (item) => item.code === String(code || "INR").toUpperCase()
+    );
+    return found ? found.symbol : `${code || "INR"} `;
   };
 
   const getPaymentLabel = (code) => {
     const found = paymentOptions.find((item) => item.code === code);
-    return found ? found.label : code;
-  };
-
-  const showSuccess = (detail) => {
-    toast.current?.show({
-      severity: "success",
-      summary: "Success",
-      detail,
-    });
-  };
-
-  const showError = (detail) => {
-    toast.current?.show({
-      severity: "error",
-      summary: "Error",
-      detail,
-    });
+    return found ? found.label : code || "-";
   };
 
   const handleAdd = async () => {
     const cleanAmount = money(amount);
+
+    if (!userId) {
+      showError("User not found. Please login again.");
+      return;
+    }
 
     if (!personName.trim() || !paymentMethod || !date) {
       showError("Please fill all fields");
@@ -186,7 +190,7 @@ function BorrowPage({ goPage }) {
       setDate(new Date());
       setNote("");
 
-      fetchData();
+      await fetchData();
       showSuccess("Record added successfully");
     } catch (err) {
       console.error("Error saving borrow/lend data:", err);
@@ -236,7 +240,7 @@ function BorrowPage({ goPage }) {
       });
 
       closeReturnModal();
-      fetchData();
+      await fetchData();
       showSuccess("Return updated successfully");
     } catch (err) {
       console.error("Error updating return:", err);
@@ -244,7 +248,7 @@ function BorrowPage({ goPage }) {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = (id) => {
     confirmDialog({
       message: "Are you sure you want to delete this record?",
       header: "Delete Confirmation",
@@ -253,7 +257,7 @@ function BorrowPage({ goPage }) {
       accept: async () => {
         try {
           await API.delete(`/borrow/${id}`);
-          fetchData();
+          await fetchData();
           showSuccess("Record deleted successfully");
         } catch (err) {
           console.error("Error deleting entry:", err);
@@ -339,14 +343,12 @@ function BorrowPage({ goPage }) {
     });
   }, [list, searchName, selectedCurrencyFilter]);
 
-  const amountBody = (rowData, field) => {
-    return (
-      <span style={{ fontWeight: 700 }}>
-        {getCurrencySymbol(rowData.currency)}
-        {money(rowData[field]).toFixed(2)}
-      </span>
-    );
-  };
+  const amountBody = (rowData, field) => (
+    <span style={{ fontWeight: 700 }}>
+      {getCurrencySymbol(rowData.currency)}
+      {money(rowData[field]).toFixed(2)}
+    </span>
+  );
 
   const typeBody = (rowData) => (
     <Tag
@@ -403,7 +405,8 @@ function BorrowPage({ goPage }) {
     <div className="page-layout">
       <Toast ref={toast} />
       <ConfirmDialog />
-      <Sidebar goPage={goPage} />
+
+      <Sidebar goPage={goPage} activePage={activePage} />
 
       <main className="page-main">
         <section className="page-header">

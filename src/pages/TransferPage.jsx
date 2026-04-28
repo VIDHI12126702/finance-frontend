@@ -14,7 +14,7 @@ import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 
-function TransferPage({ goPage }) {
+function TransferPage({ goPage, activePage }) {
   const toast = useRef(null);
 
   const [list, setList] = useState([]);
@@ -34,11 +34,7 @@ function TransferPage({ goPage }) {
   const user = JSON.parse(localStorage.getItem("loggedInUser"));
   const userId = user?.id;
 
-  const userCurrency = (
-    user?.currency ||
-    localStorage.getItem("userCurrency") ||
-    "INR"
-  ).toUpperCase();
+  const userCurrency = (user?.currency || "INR").toUpperCase();
 
   const currencyOptions = [
     { code: "INR", symbol: "₹" },
@@ -47,10 +43,6 @@ function TransferPage({ goPage }) {
     { code: "EUR", symbol: "€" },
     { code: "GBP", symbol: "£" },
     { code: "AUD", symbol: "A$" },
-    { code: "NZD", symbol: "NZ$" },
-    { code: "SGD", symbol: "S$" },
-    { code: "AED", symbol: "AED " },
-    { code: "JPY", symbol: "¥" },
   ];
 
   const accountOptions = [
@@ -64,20 +56,13 @@ function TransferPage({ goPage }) {
     return found ? found.symbol : `${code} `;
   };
 
-  const getAccountLabel = (value) => {
-    if (value === "CASH") return "Cash";
-    if (value === "BANK") return "Bank";
-    if (value === "INVESTMENT") return "Investment";
-    return value;
-  };
-
   const currencySymbol = getCurrencySymbol(userCurrency);
 
   useEffect(() => {
-    if (userId) {
-      refreshPage();
-    }
+    if (userId) refreshPage();
   }, [userId]);
+
+  const money = (value) => Number(Number(value || 0).toFixed(2));
 
   const formatDateForApi = (value) => {
     if (!value) return null;
@@ -87,8 +72,6 @@ function TransferPage({ goPage }) {
       "0"
     )}-${`${d.getDate()}`.padStart(2, "0")}`;
   };
-
-  const money = (value) => Number(Number(value || 0).toFixed(2));
 
   const showSuccess = (detail) => {
     toast.current?.show({
@@ -112,34 +95,38 @@ function TransferPage({ goPage }) {
     let investment = 0;
 
     transactionList.forEach((t) => {
-      const amountValue = money(t.amount);
+      const amt = money(t.amount);
       const type = (t.type || "").toUpperCase();
-      const method = (t.paymentMethod || t.account || "").toUpperCase();
+      const account = (t.account || t.paymentMethod || "").toUpperCase();
 
-      if (method === "CASH") {
-        if (type === "INCOME") cash += amountValue;
-        else if (type === "EXPENSE") cash -= amountValue;
-      } else if (method === "BANK") {
-        if (type === "INCOME") bank += amountValue;
-        else if (type === "EXPENSE") bank -= amountValue;
-      } else if (method === "INVESTMENT") {
-        if (type === "INCOME") investment += amountValue;
-        else if (type === "EXPENSE") investment -= amountValue;
+      if (account === "CASH") {
+        if (type === "INCOME") cash += amt;
+        if (type === "EXPENSE") cash -= amt;
+      }
+
+      if (account === "BANK") {
+        if (type === "INCOME") bank += amt;
+        if (type === "EXPENSE") bank -= amt;
+      }
+
+      if (account === "INVESTMENT") {
+        if (type === "INCOME") investment += amt;
+        if (type === "EXPENSE") investment -= amt;
       }
     });
 
     transferList.forEach((tr) => {
-      const amountValue = money(tr.amount);
+      const amt = money(tr.amount);
       const from = (tr.fromAccount || "").toUpperCase();
       const to = (tr.toAccount || "").toUpperCase();
 
-      if (from === "CASH") cash -= amountValue;
-      else if (from === "BANK") bank -= amountValue;
-      else if (from === "INVESTMENT") investment -= amountValue;
+      if (from === "CASH") cash -= amt;
+      if (from === "BANK") bank -= amt;
+      if (from === "INVESTMENT") investment -= amt;
 
-      if (to === "CASH") cash += amountValue;
-      else if (to === "BANK") bank += amountValue;
-      else if (to === "INVESTMENT") investment += amountValue;
+      if (to === "CASH") cash += amt;
+      if (to === "BANK") bank += amt;
+      if (to === "INVESTMENT") investment += amt;
     });
 
     setSummary({
@@ -163,8 +150,8 @@ function TransferPage({ goPage }) {
       setList(transferList);
       buildSummary(transactionList, transferList);
     } catch (err) {
-      console.error("Error refreshing page:", err);
-      showError("Failed to load transfer page data");
+      console.error("Transfer page load error:", err);
+      showError("Failed to load transfer data");
     }
   };
 
@@ -200,7 +187,7 @@ function TransferPage({ goPage }) {
       await refreshPage();
       showSuccess("Transfer saved successfully");
     } catch (err) {
-      console.error("Error saving transfer:", err);
+      console.error("Transfer save error:", err);
       showError(err?.response?.data?.message || "Failed to save transfer");
     }
   };
@@ -224,17 +211,12 @@ function TransferPage({ goPage }) {
     });
   };
 
-  const amountBody = (rowData) => {
-    return (
-      <b>
-        {currencySymbol}
-        {money(rowData.amount).toFixed(2)}
-      </b>
-    );
-  };
-
-  const fromBody = (rowData) => getAccountLabel(rowData.fromAccount);
-  const toBody = (rowData) => getAccountLabel(rowData.toAccount);
+  const amountBody = (rowData) => (
+    <b>
+      {currencySymbol}
+      {money(rowData.amount).toFixed(2)}
+    </b>
+  );
 
   const actionBody = (rowData) => (
     <Button
@@ -250,7 +232,8 @@ function TransferPage({ goPage }) {
     <div className="page-layout">
       <Toast ref={toast} />
       <ConfirmDialog />
-      <Sidebar goPage={goPage} />
+
+      <Sidebar goPage={goPage} activePage={activePage} />
 
       <main className="page-main">
         <section className="page-header">
@@ -384,8 +367,8 @@ function TransferPage({ goPage }) {
             emptyMessage="No transfer records found."
           >
             <Column field="amount" header="Amount" body={amountBody} />
-            <Column field="fromAccount" header="From" body={fromBody} />
-            <Column field="toAccount" header="To" body={toBody} />
+            <Column field="fromAccount" header="From" />
+            <Column field="toAccount" header="To" />
             <Column field="date" header="Date" />
             <Column field="note" header="Note" />
             <Column header="Action" body={actionBody} />

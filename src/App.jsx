@@ -3,7 +3,6 @@ import Welcome from "./pages/Welcome";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import HomePage from "./pages/HomePage";
-import Dashboard from "./pages/Dashboard";
 import MonthlyPage from "./pages/MonthlyPage";
 import YearlyPage from "./pages/YearlyPage";
 import HistoryPage from "./pages/HistoryPage";
@@ -21,7 +20,9 @@ function App() {
 
   useEffect(() => {
     const user = localStorage.getItem("loggedInUser");
-    if (user) setPage("home");
+    if (user) {
+      setPage("home");
+    }
   }, []);
 
   const goPage = (nextPage) => {
@@ -32,7 +33,7 @@ function App() {
     }
 
     setPage(nextPage);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo(0, 0);
   };
 
   if (page === "welcome") {
@@ -44,7 +45,9 @@ function App() {
     );
   }
 
-  if (page === "register") return <Register goLogin={() => setPage("login")} />;
+  if (page === "register") {
+    return <Register goLogin={() => setPage("login")} />;
+  }
 
   if (page === "login") {
     return (
@@ -55,14 +58,13 @@ function App() {
     );
   }
 
-  if (page === "home") return <HomePage goPage={goPage} activePage={page} />;
-  if (page === "dashboard") return <Dashboard goPage={goPage} activePage={page} />;
-  if (page === "monthly") return <MonthlyPage goPage={goPage} activePage={page} />;
-  if (page === "yearly") return <YearlyPage goPage={goPage} activePage={page} />;
-  if (page === "history") return <HistoryPage goPage={goPage} activePage={page} />;
-  if (page === "bills") return <BillsPage goPage={goPage} activePage={page} />;
-  if (page === "borrow") return <BorrowPage goPage={goPage} activePage={page} />;
-  if (page === "transfer") return <TransferPage goPage={goPage} activePage={page} />;
+  if (page === "home") return <HomePage goPage={goPage} activePage="home" />;
+  if (page === "monthly") return <MonthlyPage goPage={goPage} activePage="monthly" />;
+  if (page === "yearly") return <YearlyPage goPage={goPage} activePage="yearly" />;
+  if (page === "history") return <HistoryPage goPage={goPage} activePage="history" />;
+  if (page === "bills") return <BillsPage goPage={goPage} activePage="bills" />;
+  if (page === "borrow") return <BorrowPage goPage={goPage} activePage="borrow" />;
+  if (page === "transfer") return <TransferPage goPage={goPage} activePage="transfer" />;
 
   return <HomePage goPage={goPage} activePage="home" />;
 }

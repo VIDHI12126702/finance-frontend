@@ -1,14 +1,13 @@
 import "./Sidebar.css";
 
 function Sidebar({ goPage, activePage }) {
-  const menuItems = [
+  const menu = [
     { key: "home", icon: "🏠", label: "Home" },
-    { key: "dashboard", icon: "📊", label: "Dashboard" },
-    { key: "monthly", icon: "🗓️", label: "Monthly" },
-    { key: "yearly", icon: "📈", label: "Yearly" },
-    { key: "history", icon: "📜", label: "History" },
-    { key: "bills", icon: "🧾", label: "Bills" },
-    { key: "borrow", icon: "💸", label: "Borrow" },
+    { key: "monthly", icon: "🗓️", label: "Monthly Analysis" },
+    { key: "yearly", icon: "📈", label: "Yearly Analysis" },
+    { key: "history", icon: "📜", label: "Transaction History" },
+    { key: "bills", icon: "🧾", label: "Personal Bills" },
+    { key: "borrow", icon: "💸", label: "Borrow / Lend" },
     { key: "transfer", icon: "🏦", label: "Transfer" },
   ];
 
@@ -18,13 +17,14 @@ function Sidebar({ goPage, activePage }) {
         <div className="sidebar-logo">💰 Finance App</div>
 
         <ul className="sidebar-menu">
-          {menuItems.map((item) => (
+          {menu.map((item) => (
             <li
               key={item.key}
               className={activePage === item.key ? "active-menu" : ""}
               onClick={() => goPage(item.key)}
             >
-              <span>{item.icon}</span> {item.label}
+              <span>{item.icon}</span>
+              {item.label}
             </li>
           ))}
         </ul>
@@ -40,13 +40,6 @@ function Sidebar({ goPage, activePage }) {
           onClick={() => goPage("home")}
         >
           🏠<span>Home</span>
-        </button>
-
-        <button
-          className={activePage === "dashboard" ? "active-mobile" : ""}
-          onClick={() => goPage("dashboard")}
-        >
-          📊<span>Dash</span>
         </button>
 
         <button
@@ -68,6 +61,10 @@ function Sidebar({ goPage, activePage }) {
           onClick={() => goPage("transfer")}
         >
           🏦<span>Transfer</span>
+        </button>
+
+        <button onClick={() => goPage("login")}>
+          🚪<span>Logout</span>
         </button>
       </nav>
     </>

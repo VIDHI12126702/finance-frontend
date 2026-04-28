@@ -5,7 +5,7 @@ import API from "../api";
 import { normalizeTransactions } from "../utils/transactionUtils";
 import "./PageLayout.css";
 
-function YearlyPage({ goPage }) {
+function YearlyPage({ goPage, activePage }) {
   const [transactions, setTransactions] = useState([]);
   const [transfers, setTransfers] = useState([]);
 
@@ -13,9 +13,7 @@ function YearlyPage({ goPage }) {
   const userId = user?.id;
 
   useEffect(() => {
-    if (userId) {
-      fetchData();
-    }
+    if (userId) fetchData();
   }, [userId]);
 
   const fetchData = async () => {
@@ -36,7 +34,7 @@ function YearlyPage({ goPage }) {
 
   return (
     <div className="page-layout">
-      <Sidebar goPage={goPage} />
+      <Sidebar goPage={goPage} activePage={activePage} />
 
       <main className="page-main">
         <section className="page-header">

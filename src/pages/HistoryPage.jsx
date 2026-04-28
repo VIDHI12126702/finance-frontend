@@ -6,7 +6,7 @@ import { normalizeTransactions } from "../utils/transactionUtils";
 import "./PageLayout.css";
 import "./HistoryPage.css";
 
-function HistoryPage({ goPage }) {
+function HistoryPage({ goPage, activePage }) {
   const [transactions, setTransactions] = useState([]);
   const [searchText, setSearchText] = useState("");
   const [typeFilter, setTypeFilter] = useState("All");
@@ -14,56 +14,18 @@ function HistoryPage({ goPage }) {
   const [dateFilter, setDateFilter] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const getLoggedInUserId = () => {
-    try {
-      const loggedInUser = localStorage.getItem("loggedInUser");
-      const user = localStorage.getItem("user");
-      const userId = localStorage.getItem("userId");
-
-      if (loggedInUser) {
-        const parsed = JSON.parse(loggedInUser);
-        if (parsed?.id) return parsed.id;
-      }
-
-      if (user) {
-        const parsed = JSON.parse(user);
-        if (parsed?.id) return parsed.id;
-      }
-
-      if (userId) {
-        return Number(userId);
-      }
-
-      return null;
-    } catch (error) {
-      console.error("Error reading user from localStorage:", error);
-      return null;
-    }
-  };
-
-  const currentUserId = getLoggedInUserId();
+  const user = JSON.parse(localStorage.getItem("loggedInUser"));
+  const userId = user?.id;
 
   useEffect(() => {
-    if (currentUserId) {
-      fetchData(currentUserId);
-    } else {
-      console.error("No logged-in user id found");
-      setTransactions([]);
-    }
-  }, []);
+    if (userId) fetchData();
+  }, [userId]);
 
-  const fetchData = async (passedUserId = currentUserId) => {
-    if (!passedUserId) {
-      console.error("User id missing while fetching history");
-      setTransactions([]);
-      return;
-    }
-
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const res = await API.get(`/transactions/user/${passedUserId}`);
-      console.log("History API response:", res.data);
-      setTransactions(normalizeTransactions(res.data));
+      const res = await API.get(`/transactions/user/${userId}`);
+      setTransactions(normalizeTransactions(res.data || []));
     } catch (err) {
       console.error("Error fetching history:", err);
       setTransactions([]);
@@ -81,42 +43,51 @@ function HistoryPage({ goPage }) {
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => {
+      const text = searchText.toLowerCase();
+
       const matchesSearch =
         searchText.trim() === "" ||
-        (t.type || "").toLowerCase().includes(searchText.toLowerCase()) ||
-        (t.category || "").toLowerCase().includes(searchText.toLowerCase()) ||
+        (t.type || "").toLowerCase().includes(text) ||
+        (t.category || "").toLowerCase().includes(text) ||
+        (t.account || "").toLowerCase().includes(text) ||
         String(t.amount || "").includes(searchText) ||
         (t.date || "").includes(searchText) ||
-        (t.note || "").toLowerCase().includes(searchText.toLowerCase());
+        (t.notes || "").toLowerCase().includes(text);
 
       const matchesType =
-        typeFilter === "All" || (t.type || "") === typeFilter;
+        typeFilter === "All" || (t.type || "").toUpperCase() === typeFilter;
 
       const matchesCategory =
         categoryFilter === "All" || (t.category || "") === categoryFilter;
 
-      const matchesDate =
-        dateFilter === "" || (t.date || "") === dateFilter;
+      const matchesDate = dateFilter === "" || (t.date || "") === dateFilter;
 
       return matchesSearch && matchesType && matchesCategory && matchesDate;
     });
   }, [transactions, searchText, typeFilter, categoryFilter, dateFilter]);
 
+  const clearFilters = () => {
+    setSearchText("");
+    setTypeFilter("All");
+    setCategoryFilter("All");
+    setDateFilter("");
+  };
+
   return (
     <div className="page-layout">
-      <Sidebar goPage={goPage} />
+      <Sidebar goPage={goPage} activePage={activePage} />
 
       <main className="page-main">
         <section className="page-header">
           <h1>📜 Transaction History</h1>
-          <p>View, search and filter your transactions</p>
+          <p>View, search, edit and delete your transactions</p>
         </section>
 
         <section className="page-box">
           <div className="history-filter-grid">
             <input
               type="text"
-              placeholder="Search by type, category, amount, date or note"
+              placeholder="Search type, category, amount, date or note"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               className="history-input"
@@ -128,10 +99,8 @@ function HistoryPage({ goPage }) {
               className="history-input"
             >
               <option value="All">All Types</option>
-              <option value="Income">Income</option>
-              <option value="Expense">Expense</option>
-              <option value="Investment">Investment</option>
-              <option value="Personal Use">Personal Use</option>
+              <option value="INCOME">Income</option>
+              <option value="EXPENSE">Expense</option>
             </select>
 
             <select
@@ -139,9 +108,9 @@ function HistoryPage({ goPage }) {
               onChange={(e) => setCategoryFilter(e.target.value)}
               className="history-input"
             >
-              {categoryOptions.map((category) => (
-                <option key={category} value={category}>
-                  {category === "All" ? "All Categories" : category}
+              {categoryOptions.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat === "All" ? "All Categories" : cat}
                 </option>
               ))}
             </select>
@@ -155,28 +124,19 @@ function HistoryPage({ goPage }) {
           </div>
 
           <div className="history-filter-actions">
-            <button
-              className="clear-filter-btn"
-              onClick={() => {
-                setSearchText("");
-                setTypeFilter("All");
-                setCategoryFilter("All");
-                setDateFilter("");
-              }}
-            >
+            <button className="clear-filter-btn" onClick={clearFilters}>
               Clear Filters
             </button>
           </div>
 
           {loading ? (
-            <p style={{ textAlign: "center", marginTop: "20px" }}>Loading...</p>
+            <p>Loading...</p>
           ) : (
             <TransactionTable
-  transactions={filteredTransactions}
-  fetchData={() => fetchData(currentUserId)}
-  userId={currentUserId}
-/>
-
+              transactions={filteredTransactions}
+              fetchData={fetchData}
+              userId={userId}
+            />
           )}
         </section>
       </main>
