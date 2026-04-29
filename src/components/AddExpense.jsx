@@ -8,6 +8,7 @@ import { Button } from "primereact/button";
 import { Message } from "primereact/message";
 import API from "../api";
 import { toMoneyNumber } from "../utils/moneyUtils";
+import { formatDateForApi, todayOnly, isFutureDate } from "../utils/dateUtils";
 
 function AddExpense({ fetchData, userId }) {
   const [amount, setAmount] = useState(null);
@@ -36,18 +37,10 @@ function AddExpense({ fetchData, userId }) {
     { label: "Investment", value: "INVESTMENT" },
   ];
 
-  const formatDate = (value) => {
-    if (!value) return null;
-    const d = new Date(value);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-      2,
-      "0"
-    )}-${String(d.getDate()).padStart(2, "0")}`;
-  };
-
   const convertFileToBase64 = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
+
       reader.readAsDataURL(file);
       reader.onload = () => resolve(reader.result);
       reader.onerror = (error) => reject(error);
@@ -95,6 +88,11 @@ function AddExpense({ fetchData, userId }) {
       return;
     }
 
+    if (isFutureDate(date)) {
+      setMsg({ type: "error", text: "Future date is not allowed." });
+      return;
+    }
+
     if (category === "Personal Use" && !notes.trim() && !billFile) {
       setMsg({
         type: "error",
@@ -122,18 +120,16 @@ function AddExpense({ fetchData, userId }) {
     try {
       setLoading(true);
 
-      const payload = {
+      await API.post("/transactions", {
         type: "EXPENSE",
         category,
         account,
         amount: cleanAmount,
         notes: notes.trim(),
         bill: billFile,
-        date: formatDate(date),
+        date: formatDateForApi(date),
         user: { id: userId },
-      };
-
-      await API.post("/transactions", payload);
+      });
 
       resetForm();
       setMsg({ type: "success", text: "Expense added successfully." });
@@ -150,8 +146,6 @@ function AddExpense({ fetchData, userId }) {
   };
 
   const showPersonalUseExtra = category === "Personal Use";
-  const showCarNote = category === "Car";
-  const showMoneyGiveNote = category === "Money Give";
 
   return (
     <Card title="Add Expense" className="shadow-2 border-round-2xl responsive-card">
@@ -204,6 +198,7 @@ function AddExpense({ fetchData, userId }) {
             onChange={(e) => setDate(e.value)}
             dateFormat="dd/mm/yy"
             showIcon
+            maxDate={todayOnly()}
             className="w-full"
           />
         </div>
@@ -214,13 +209,7 @@ function AddExpense({ fetchData, userId }) {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            placeholder={
-              showCarNote
-                ? "Example: Petrol, service, repair"
-                : showMoneyGiveNote
-                ? "Example: Money given to friend"
-                : "Write note"
-            }
+            placeholder="Write note"
             className="w-full"
             autoResize
           />
@@ -229,6 +218,7 @@ function AddExpense({ fetchData, userId }) {
         {showPersonalUseExtra && (
           <div className="col-12">
             <label className="block mb-2 font-medium">Upload Bill Image</label>
+
             <input
               type="file"
               accept="image/*"

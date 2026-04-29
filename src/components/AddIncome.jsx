@@ -8,6 +8,7 @@ import { Button } from "primereact/button";
 import { Message } from "primereact/message";
 import API from "../api";
 import { toMoneyNumber } from "../utils/moneyUtils";
+import { formatDateForApi, todayOnly, isFutureDate } from "../utils/dateUtils";
 
 function AddIncome({ fetchData, userId }) {
   const [amount, setAmount] = useState(null);
@@ -29,14 +30,6 @@ function AddIncome({ fetchData, userId }) {
     { label: "Investment", value: "INVESTMENT" },
   ];
 
-  const formatDate = (value) => {
-    if (!value) return null;
-    const d = new Date(value);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-      d.getDate()
-    ).padStart(2, "0")}`;
-  };
-
   const handleAdd = async () => {
     setMsg(null);
 
@@ -52,6 +45,11 @@ function AddIncome({ fetchData, userId }) {
       return;
     }
 
+    if (isFutureDate(date)) {
+      setMsg({ type: "error", text: "Future date is not allowed." });
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -61,7 +59,8 @@ function AddIncome({ fetchData, userId }) {
         account,
         amount: cleanAmount,
         notes: notes.trim(),
-        date: formatDate(date),
+        bill: null,
+        date: formatDateForApi(date),
         user: { id: userId },
       });
 
@@ -70,9 +69,11 @@ function AddIncome({ fetchData, userId }) {
       setAccount("BANK");
       setNotes("");
       setDate(new Date());
+
       setMsg({ type: "success", text: "Income added successfully." });
       fetchData?.();
     } catch (error) {
+      console.error("Add income error:", error);
       setMsg({
         type: "error",
         text: error?.response?.data?.message || "Failed to add income.",
@@ -102,26 +103,58 @@ function AddIncome({ fetchData, userId }) {
 
         <div className="col-12 md:col-6">
           <label className="block mb-2 font-medium">Income Type</label>
-          <Dropdown value={category} options={incomeCategoryOptions} onChange={(e) => setCategory(e.value)} className="w-full" />
+          <Dropdown
+            value={category}
+            options={incomeCategoryOptions}
+            onChange={(e) => setCategory(e.value)}
+            placeholder="Select income type"
+            className="w-full"
+          />
         </div>
 
         <div className="col-12 md:col-6">
           <label className="block mb-2 font-medium">Income To</label>
-          <Dropdown value={account} options={accountOptions} onChange={(e) => setAccount(e.value)} className="w-full" />
+          <Dropdown
+            value={account}
+            options={accountOptions}
+            onChange={(e) => setAccount(e.value)}
+            placeholder="Select account"
+            className="w-full"
+          />
         </div>
 
         <div className="col-12 md:col-6">
           <label className="block mb-2 font-medium">Date</label>
-          <Calendar value={date} onChange={(e) => setDate(e.value)} dateFormat="dd/mm/yy" showIcon className="w-full" />
+          <Calendar
+            value={date}
+            onChange={(e) => setDate(e.value)}
+            dateFormat="dd/mm/yy"
+            showIcon
+            maxDate={todayOnly()}
+            className="w-full"
+          />
         </div>
 
         <div className="col-12">
           <label className="block mb-2 font-medium">Notes</label>
-          <InputTextarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full" autoResize />
+          <InputTextarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            placeholder="Example: Salary, business income, returned money"
+            className="w-full"
+            autoResize
+          />
         </div>
 
         <div className="col-12">
-          <Button label={loading ? "Adding..." : "Add Income"} icon="pi pi-plus" onClick={handleAdd} loading={loading} className="w-full" />
+          <Button
+            label={loading ? "Adding..." : "Add Income"}
+            icon="pi pi-plus"
+            onClick={handleAdd}
+            loading={loading}
+            className="w-full"
+          />
         </div>
 
         {msg && (

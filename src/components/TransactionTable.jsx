@@ -11,6 +11,12 @@ import { InputTextarea } from "primereact/inputtextarea";
 import { Message } from "primereact/message";
 import API from "../api";
 import { getUserCurrencySymbol } from "../utils/currencyUtils";
+import {
+  parseLocalDate,
+  formatDateForApi,
+  todayOnly,
+  isFutureDate,
+} from "../utils/dateUtils";
 
 function TransactionTable({ transactions = [], fetchData, userId }) {
   const [editDialog, setEditDialog] = useState(false);
@@ -19,6 +25,11 @@ function TransactionTable({ transactions = [], fetchData, userId }) {
   const [loading, setLoading] = useState(false);
 
   const symbol = getUserCurrencySymbol();
+
+  const typeOptions = [
+    { label: "Income", value: "INCOME" },
+    { label: "Expense", value: "EXPENSE" },
+  ];
 
   const incomeOptions = [
     { label: "Income", value: "Income" },
@@ -47,84 +58,91 @@ function TransactionTable({ transactions = [], fetchData, userId }) {
     return selectedTransaction.type === "INCOME" ? incomeOptions : expenseOptions;
   };
 
-  const formatDateForApi = (value) => {
-    if (!value) return null;
-    const d = new Date(value);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
-
   const amountBody = (rowData) => {
     const sign = rowData.type === "INCOME" ? "+" : "-";
+
     return `${sign} ${symbol}${Number(rowData.amount || 0).toFixed(2)}`;
   };
 
-  const typeBody = (rowData) => {
-    return (
-      <span
-        className={`font-bold ${
-          rowData.type === "INCOME" ? "text-green-500" : "text-red-500"
-        }`}
-      >
-        {rowData.type}
-      </span>
-    );
-  };
+  const typeBody = (rowData) => (
+    <span
+      className={`font-bold ${
+        rowData.type === "INCOME" ? "text-green-500" : "text-red-500"
+      }`}
+    >
+      {rowData.type}
+    </span>
+  );
 
-  const accountBody = (rowData) =>
-    rowData.account || rowData.paymentMethod || "-";
+  const accountBody = (rowData) => rowData.account || rowData.paymentMethod || "-";
 
-  const notesBody = (rowData) =>
-    rowData.notes || rowData.note || "-";
+  const notesBody = (rowData) => rowData.notes || rowData.note || "-";
 
   const dateBody = (rowData) => rowData.date || "-";
 
   const openEdit = (rowData) => {
     setMsg(null);
+
     setSelectedTransaction({
       ...rowData,
-      date: rowData.date ? new Date(rowData.date) : new Date(),
+      type: String(rowData.type || "EXPENSE").toUpperCase(),
+      date: rowData.date ? parseLocalDate(rowData.date) : new Date(),
       notes: rowData.notes || rowData.note || "",
+      bill: rowData.bill || null,
       account: rowData.account || rowData.paymentMethod || "BANK",
       category:
-        rowData.category ||
-        (rowData.type === "INCOME" ? "Income" : "Rent"),
+        rowData.category || (rowData.type === "INCOME" ? "Income" : "Rent"),
+      amount: Number(rowData.amount || 0),
     });
+
     setEditDialog(true);
   };
 
   const handleUpdate = async () => {
     if (!selectedTransaction) return;
 
+    if (isFutureDate(selectedTransaction.date)) {
+      setMsg({
+        type: "error",
+        text: "Future date is not allowed.",
+      });
+      return;
+    }
+
+    if (!selectedTransaction.amount || Number(selectedTransaction.amount) <= 0) {
+      setMsg({
+        type: "error",
+        text: "Please enter valid amount.",
+      });
+      return;
+    }
+
     try {
       setLoading(true);
       setMsg(null);
 
       const payload = {
+        id: selectedTransaction.id,
         type: selectedTransaction.type,
         category: selectedTransaction.category,
-        paymentMethod: selectedTransaction.account, // FIXED
-        amount: Number(selectedTransaction.amount || 0),
-        note: selectedTransaction.notes || "", // FIXED
+        account: selectedTransaction.account,
+        amount: Number(Number(selectedTransaction.amount || 0).toFixed(2)),
+        notes: selectedTransaction.notes || "",
+        bill: selectedTransaction.bill || null,
         date: formatDateForApi(selectedTransaction.date),
         user: { id: userId },
       };
 
       await API.put(`/transactions/${selectedTransaction.id}`, payload);
-      setEditDialog(false);
 
-      if (fetchData) {
-        fetchData();
-      }
+      setEditDialog(false);
+      fetchData?.();
     } catch (error) {
       console.error("Update error:", error);
+
       setMsg({
         type: "error",
-        text:
-          error?.response?.data?.message ||
-          "Failed to update transaction.",
+        text: error?.response?.data?.message || "Failed to update transaction.",
       });
     } finally {
       setLoading(false);
@@ -132,15 +150,23 @@ function TransactionTable({ transactions = [], fetchData, userId }) {
   };
 
   const handleDelete = async (id) => {
+    const ok = window.confirm("Are you sure you want to delete this transaction?");
+
+    if (!ok) return;
+
     try {
       setMsg(null);
+
       await API.delete(`/transactions/${id}`);
-      if (fetchData) {
-        fetchData();
-      }
+
+      fetchData?.();
     } catch (error) {
       console.error("Delete error:", error);
-      setMsg({ type: "error", text: "Failed to delete transaction." });
+
+      setMsg({
+        type: "error",
+        text: "Failed to delete transaction.",
+      });
     }
   };
 
@@ -152,6 +178,7 @@ function TransactionTable({ transactions = [], fetchData, userId }) {
         outlined
         onClick={() => openEdit(rowData)}
       />
+
       <Button
         icon="pi pi-trash"
         rounded
@@ -162,30 +189,52 @@ function TransactionTable({ transactions = [], fetchData, userId }) {
     </div>
   );
 
-  return (
-    <Card title="Transaction History" className="shadow-2 border-round-2xl">
-      {msg && <Message severity={msg.type} text={msg.text} className="w-full mb-3" />}
+  const handleBillChange = (e) => {
+    const file = e.target.files[0];
 
-      <DataTable
-        value={transactions}
-        paginator
-        rows={5}
-        responsiveLayout="scroll"
-        emptyMessage="No transactions found."
-      >
-        <Column field="type" header="Type" body={typeBody} />
-        <Column field="account" header="Account" body={accountBody} />
-        <Column field="category" header="Category" />
-        <Column field="amount" header="Amount" body={amountBody} />
-        <Column field="date" header="Date" body={dateBody} />
-        <Column field="notes" header="Notes" body={notesBody} />
-        <Column header="Actions" body={actionBody} />
-      </DataTable>
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.readAsDataURL(file);
+
+    reader.onload = () => {
+      setSelectedTransaction({
+        ...selectedTransaction,
+        bill: reader.result,
+      });
+    };
+  };
+
+  return (
+    <>
+      <Card title="Transaction History" className="shadow-2 border-round-2xl">
+        {msg && (
+          <Message severity={msg.type} text={msg.text} className="w-full mb-3" />
+        )}
+
+        <DataTable
+          value={transactions}
+          paginator
+          rows={5}
+          responsiveLayout="scroll"
+          emptyMessage="No transactions found."
+        >
+          <Column field="type" header="Type" body={typeBody} />
+          <Column field="account" header="Account" body={accountBody} />
+          <Column field="category" header="Category" />
+          <Column field="amount" header="Amount" body={amountBody} />
+          <Column field="date" header="Date" body={dateBody} />
+          <Column field="notes" header="Notes" body={notesBody} />
+          <Column header="Actions" body={actionBody} />
+        </DataTable>
+      </Card>
 
       <Dialog
         header="Edit Transaction"
         visible={editDialog}
-        style={{ width: "36rem" }}
+        style={{ width: "95%", maxWidth: "720px" }}
+        modal
         onHide={() => setEditDialog(false)}
       >
         {selectedTransaction && (
@@ -194,10 +243,7 @@ function TransactionTable({ transactions = [], fetchData, userId }) {
               <label className="block mb-2 font-medium">Type</label>
               <Dropdown
                 value={selectedTransaction.type}
-                options={[
-                  { label: "INCOME", value: "INCOME" },
-                  { label: "EXPENSE", value: "EXPENSE" },
-                ]}
+                options={typeOptions}
                 onChange={(e) =>
                   setSelectedTransaction({
                     ...selectedTransaction,
@@ -249,6 +295,11 @@ function TransactionTable({ transactions = [], fetchData, userId }) {
                     amount: e.value,
                   })
                 }
+                mode="decimal"
+                min={0}
+                minFractionDigits={0}
+                maxFractionDigits={2}
+                inputMode="decimal"
                 className="w-full"
               />
             </div>
@@ -265,6 +316,7 @@ function TransactionTable({ transactions = [], fetchData, userId }) {
                 }
                 dateFormat="dd/mm/yy"
                 showIcon
+                maxDate={todayOnly()}
                 className="w-full"
               />
             </div>
@@ -279,11 +331,55 @@ function TransactionTable({ transactions = [], fetchData, userId }) {
                     notes: e.target.value,
                   })
                 }
-                rows={3}
-                className="w-full"
+                rows={4}
                 autoResize
+                className="w-full"
               />
             </div>
+
+            {selectedTransaction.type === "EXPENSE" &&
+              selectedTransaction.category === "Personal Use" && (
+                <div className="col-12">
+                  <label className="block mb-2 font-medium">Bill Image</label>
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleBillChange}
+                    className="w-full p-inputtext"
+                  />
+
+                  {selectedTransaction.bill && (
+                    <div className="mt-3">
+                      <img
+                        src={selectedTransaction.bill}
+                        alt="Bill"
+                        style={{
+                          width: "100%",
+                          maxHeight: "240px",
+                          objectFit: "contain",
+                          borderRadius: "12px",
+                          border: "1px solid #e5e7eb",
+                        }}
+                      />
+
+                      <Button
+                        label="Remove Image"
+                        icon="pi pi-times"
+                        severity="danger"
+                        outlined
+                        className="mt-2 w-full"
+                        onClick={() =>
+                          setSelectedTransaction({
+                            ...selectedTransaction,
+                            bill: null,
+                          })
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
             <div className="col-12">
               <Button
@@ -294,10 +390,16 @@ function TransactionTable({ transactions = [], fetchData, userId }) {
                 className="w-full"
               />
             </div>
+
+            {msg && (
+              <div className="col-12">
+                <Message severity={msg.type} text={msg.text} className="w-full" />
+              </div>
+            )}
           </div>
         )}
       </Dialog>
-    </Card>
+    </>
   );
 }
 
